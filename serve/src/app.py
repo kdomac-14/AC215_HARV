@@ -69,8 +69,9 @@ async def geo_verify(req: Request, inp: GeoVerifyIn):
     else:
         loc = PROVIDER.locate(ip)
         if not loc:
-            log_attempt({"ok": False, "ip": ip, "reason":"geo_lookup_failed"})
-            return {"ok": False, "reason": "geo_lookup_failed"}
+            provider_name = type(PROVIDER).__name__
+            log_attempt({"ok": False, "ip": ip, "provider": provider_name, "reason":"geo_lookup_failed"})
+            return {"ok": False, "reason": "geo_lookup_failed", "provider": provider_name, "ip": ip}
         lat, lon, acc = loc
         source = "ip_geo"
 

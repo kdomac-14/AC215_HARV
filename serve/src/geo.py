@@ -74,9 +74,9 @@ class GoogleGeo(GeoProvider):
 
 class IpApi(GeoProvider):
     def locate(self, ip: Optional[str]):
-        # ip-api.com: http://ip-api.com/json/{ip}?fields=status,lat,lon
+        # ip-api.com: http://ip-api.com/json/{ip}?fields=status,lat,lon,message
         target = ip or ""
-        url = f"http://ip-api.com/json/{target}?fields=status,lat,lon"
+        url = f"http://ip-api.com/json/{target}?fields=status,lat,lon,message"
         try:
             r = requests.get(url, timeout=5)
             if r.ok:
@@ -85,7 +85,10 @@ class IpApi(GeoProvider):
                     lat, lon = float(data["lat"]), float(data["lon"])
                     # No accuracy provided; assume coarse accuracy.
                     return lat, lon, 1000.0
-        except Exception:
+                # Log failure reason if provided
+                print(f"IpApi failed: {data.get('message', 'unknown')}", flush=True)
+        except Exception as e:
+            print(f"IpApi exception: {e}", flush=True)
             return None
         return None
 
