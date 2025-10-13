@@ -1,0 +1,33 @@
+stages:
+  ingest:
+    cmd: python -m ingestion.src.ingest
+    deps: []
+    outs:
+      - data/interim
+  preprocess:
+    cmd: python -m preprocess.src.preprocess
+    deps:
+      - data/interim
+      - params.yaml
+    outs:
+      - data/processed
+  train:
+    cmd: python -m train.src.train
+    deps:
+      - data/processed
+      - params.yaml
+    outs:
+      - artifacts/checkpoints
+  evaluate:
+    cmd: python -m evaluate.src.evaluate
+    deps:
+      - artifacts/checkpoints
+      - data/processed
+    outs:
+      - artifacts/metrics.json
+  export:
+    cmd: python -m export.src.export
+    deps:
+      - artifacts/checkpoints
+    outs:
+      - artifacts/model

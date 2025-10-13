@@ -1,0 +1,11 @@
+seed: 42
+img_size: 224
+epochs: 3
+batch_size: 16
+lr: 0.0005
+model_name: mobilenet_v3_small  # or efficientnet_lite0
+freeze_ratio: 0.9
+train_split: 0.7
+val_split: 0.2
+test_split: 0.1
+classes: ["ProfA", "Room1"]  # two-class toy heads for demo

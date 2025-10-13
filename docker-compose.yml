@@ -1,0 +1,79 @@
+version: "3.9"
+services:
+  ingestion:
+    build: ./ingestion
+    command: uv run python -m src.ingest
+    volumes:
+      - ./data:/app/data
+      - ./artifacts:/app/artifacts
+    env_file: .env
+
+  preprocess:
+    build: ./preprocess
+    command: uv run python -m src.preprocess
+    depends_on:
+      ingestion:
+        condition: service_completed_successfully
+    volumes:
+      - ./data:/app/data
+      - ./artifacts:/app/artifacts
+      - ./params.yaml:/app/params.yaml
+    env_file: .env
+
+  train:
+    build: ./train
+    command: uv run python -m src.train
+    depends_on:
+      preprocess:
+        condition: service_completed_successfully
+    volumes:
+      - ./data:/app/data
+      - ./artifacts:/app/artifacts
+      - ./params.yaml:/app/params.yaml
+    env_file: .env
+
+  evaluate:
+    build: ./evaluate
+    command: uv run python -m src.evaluate
+    depends_on:
+      train:
+        condition: service_completed_successfully
+    volumes:
+      - ./artifacts:/app/artifacts
+      - ./data:/app/data
+      - ./params.yaml:/app/params.yaml
+    env_file: .env
+
+  export:
+    build: ./export
+    command: uv run python -m src.export
+    depends_on:
+      evaluate:
+        condition: service_completed_successfully
+    volumes:
+      - ./artifacts:/app/artifacts
+      - ./params.yaml:/app/params.yaml
+    env_file: .env
+
+  serve:
+    build: ./serve
+    command: uv run uvicorn src.app:app --host 0.0.0.0 --port ${SERVICE_PORT:-8000}
+    depends_on:
+      export:
+        condition: service_completed_successfully
+    ports:
+      - "${SERVICE_PORT:-8000}:8000"
+    volumes:
+      - ./artifacts:/app/artifacts
+    env_file: .env
+    restart: always
+
+  dashboard:
+    build: ./dashboard
+    depends_on:
+      serve:
+        condition: service_started
+    ports:
+      - "${DASH_PORT:-8501}:8501"
+    env_file: .env
+    restart: always
