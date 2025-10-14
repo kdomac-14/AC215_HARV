@@ -4,11 +4,18 @@ from typing import Optional, Tuple
 
 ART_DIR = Path("/app/artifacts")
 CFG_DIR = ART_DIR / "config"
-CFG_DIR.mkdir(parents=True, exist_ok=True)
 GEO_DIR = ART_DIR / "geo"
-GEO_DIR.mkdir(parents=True, exist_ok=True)
 CAL_FILE = CFG_DIR / "calibration.json"
 LOG_FILE = GEO_DIR / "verify_log.jsonl"
+
+def _ensure_dirs():
+    """Create artifact directories if they don't exist. Safe to call multiple times."""
+    try:
+        CFG_DIR.mkdir(parents=True, exist_ok=True)
+        GEO_DIR.mkdir(parents=True, exist_ok=True)
+    except (OSError, PermissionError):
+        # Running outside Docker or in read-only filesystem
+        pass
 
 GEO_PROVIDER = (os.getenv("GEO_PROVIDER") or "auto").lower()
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
@@ -16,6 +23,7 @@ DEFAULT_EPSILON_M = float(os.getenv("GEO_EPSILON_M") or 60)
 TRUST_XFF = (os.getenv("TRUST_X_FORWARDED_FOR","true").lower() == "true")
 
 def save_calibration(lat: float, lon: float, epsilon_m: float) -> dict:
+    _ensure_dirs()
     payload = {
         "lat": float(lat),
         "lon": float(lon),
@@ -115,6 +123,7 @@ def pick_provider() -> GeoProvider:
 PROVIDER = pick_provider()
 
 def log_attempt(record: dict):
+    _ensure_dirs()
     record["ts"] = int(time.time())
     with open(LOG_FILE, "a") as f:
         f.write(json.dumps(record) + "\n")
