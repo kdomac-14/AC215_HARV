@@ -5,6 +5,7 @@ services:
     volumes:
       - ./data:/app/data
       - ./artifacts:/app/artifacts
+      - ./params.yaml:/app/params.yaml
     env_file: .env
 
   preprocess:

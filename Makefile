@@ -1,8 +1,23 @@
 SHELL := /bin/bash
-.PHONY: run down logs clean test test-unit test-integration test-e2e test-load verify coverage evidence help
+.PHONY: run down logs clean test test-unit test-integration test-e2e test-load verify coverage evidence help setup-faces fine-tune-blurry
 
 run: ## Build and run full pipeline + API + dashboard
 	docker compose up --build
+
+setup-faces: ## Setup real face dataset from Kaggle
+	python scripts/simple_face_setup.py
+
+fine-tune-blurry: ## Fine-tune model for blurry face recognition
+	python scripts/fine_tune_blurry_faces.py
+
+test-setup: ## Test face setup dependencies and configuration
+	python scripts/test_setup.py
+
+check-dataset: ## Check if real photos are in the dataset
+	python scripts/check_dataset.py
+
+download-faces: ## Download real face dataset from Kaggle
+	python scripts/download_real_faces.py
 
 down:
 	docker compose down -v

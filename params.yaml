@@ -1,11 +1,22 @@
 seed: 42
 img_size: 224
-epochs: 3
-batch_size: 16
-lr: 0.0005
+epochs: 10  # Increased for real face training
+batch_size: 32  # Increased for better training
+lr: 0.001  # Higher learning rate for real data
 model_name: mobilenet_v3_small  # or efficientnet_lite0
-freeze_ratio: 0.9
+freeze_ratio: 0.7  # Less freezing for face recognition
 train_split: 0.7
 val_split: 0.2
 test_split: 0.1
-classes: ["ProfA", "Room1"]  # two-class toy heads for demo
+classes: ["ProfA", "Room1"]  # two-class face recognition
+# Face-specific parameters
+use_real_faces: true
+face_detection: true
+blur_augmentation: true
+blur_strength: 0.3  # Gaussian blur strength for augmentation
+distance_augmentation: true
+distance_levels: [1.0, 1.5, 2.0]  # Simulate different distances
+# Dataset configuration
+kaggle_dataset: "ashwingupta3012/human-faces"
+min_faces_per_class: 50
+max_faces_per_class: 200
