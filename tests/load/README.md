@@ -1,6 +1,6 @@
 # Load Testing
 
-Load tests for the HLAV API using k6.
+Load tests for the HARV API using k6.
 
 ## Prerequisites
 

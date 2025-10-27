@@ -1,6 +1,6 @@
 # Face Recognition Setup Guide
 
-This guide explains how to set up real human face datasets and implement blurry face recognition for the HLAV project.
+This guide explains how to set up real human face datasets and implement blurry face recognition for the HARV project.
 
 ## 🎯 Overview
 

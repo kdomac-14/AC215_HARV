@@ -2,7 +2,7 @@
 set -e
 
 echo "=========================================="
-echo "Running HLAV Test Suite"
+echo "Running HARV Test Suite"
 echo "=========================================="
 
 # Install test dependencies
