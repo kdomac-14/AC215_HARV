@@ -17,7 +17,7 @@ import numpy as np
 
 # Configuration
 KAGGLE_DATASET = "ashwingupta3012/human-faces"
-DATA_DIR = Path("/Users/vilassogaard-srikrishnan/AC215-HLAV/data")
+DATA_DIR = Path("/Users/vilassogaard-srikrishnan/AC215-HARV/data")
 RAW_DIR = DATA_DIR / "raw"
 FACES_DIR = RAW_DIR / "human_faces"
 PROCESSED_DIR = DATA_DIR / "processed"

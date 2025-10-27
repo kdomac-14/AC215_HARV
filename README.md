@@ -1,4 +1,4 @@
-# HLAV - Human Liveness & Vision Verification
+# HARV - Harvard Attendance Recognition and Verification
 
 ## Milestone 2: Transfer Learning Vision Track with Full Containerization
 
@@ -38,7 +38,7 @@ docker compose version
 ### 1. Clone and Setup
 ```bash
 git clone <repository-url>
-cd AC215-HLAV
+cd AC215-HARV
 ```
 
 ### 2. Configure Environment
@@ -341,7 +341,7 @@ curl -X POST http://localhost:8000/geo/verify \
 ## Repository Structure
 
 ```
-AC215-HLAV/
+AC215-HARV/
 ├── README.md                    # This file
 ├── EVIDENCE.md                  # Testing evidence documentation
 ├── Makefile                     # One-command orchestration
@@ -716,7 +716,7 @@ python -m src.train
 ```bash
 # Clone and setup
 git clone <repository-url>
-cd AC215-HLAV
+cd AC215-HARV
 cp .env.example .env
 
 # Run complete verification (builds, tests, generates evidence)

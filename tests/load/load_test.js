@@ -1,5 +1,5 @@
 /**
- * K6 load test for HLAV API
+ * K6 load test for HARV API
  * 
  * Run with:
  *   k6 run tests/load/load_test.js
