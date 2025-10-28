@@ -225,6 +225,13 @@ data/interim/
 data/processed/
 models/
 outputs/
+!outputs/.gitkeep
+!outputs/README.md
+!outputs/samples/
+outputs/samples/*
+!outputs/samples/README.md
+!outputs/samples/example_prediction.json
+!outputs/samples/example_metrics.json
 infra/logs/
 wandb/
 .dvc/
