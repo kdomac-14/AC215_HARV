@@ -700,6 +700,28 @@ uv pip install -e .
 python -m src.train
 ```
 
+## Deployment
+
+HARV can be deployed to Google Cloud Platform (GCP) using Cloud Run. See detailed guides:
+
+- **[DEPLOYMENT.md](./DEPLOYMENT.md)** - Comprehensive deployment guide
+- **[GCP_QUICK_START.md](./GCP_QUICK_START.md)** - Quick reference and TL;DR
+
+### Quick Deploy to GCP
+
+```bash
+# 1. Setup GCP service account
+make gcp-setup
+
+# 2. Deploy to Cloud Run (uploads artifacts + deploys)
+make gcp-full-deploy
+```
+
+**GCP Configuration:**
+- Project ID: `ac215-475022`
+- Region: `us-central1`
+- Service: `harv-backend`
+
 ## License
 
 [Your License Here]
