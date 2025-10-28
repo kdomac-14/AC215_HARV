@@ -74,6 +74,18 @@ coverage: ## Generate and view coverage report
 evidence: ## Export all evidence for submission
 	bash scripts/export_evidence.sh
 
+# GCP deployment targets
+gcp-setup: ## Setup GCP service account and download credentials
+	bash scripts/setup_gcp.sh
+
+gcp-deploy: ## Deploy backend service to Cloud Run
+	bash scripts/deploy_to_gcp.sh
+
+gcp-upload-artifacts: ## Upload artifacts to GCS bucket
+	bash scripts/upload_artifacts.sh
+
+gcp-full-deploy: gcp-upload-artifacts gcp-deploy ## Upload artifacts and deploy to Cloud Run
+
 help: ## Show this help message
 	@echo "Available targets:"
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  %-20s %s\n", $$1, $$2}'

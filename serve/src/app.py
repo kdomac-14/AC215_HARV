@@ -21,7 +21,7 @@ else:
 
 CHALLENGE_WORD = os.getenv("CHALLENGE_WORD","orchid")
 
-app = FastAPI(title="HLAB API", version="0.2.0")
+app = FastAPI(title="HARV API", version="0.2.0")
 
 class VerifyIn(BaseModel):
     image_b64: str

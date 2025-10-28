@@ -1,0 +1,38 @@
+# Production Dockerfile for Cloud Run deployment
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    libgomp1 \
+    libglib2.0-0 \
+    libsm6 \
+    libxext6 \
+    libxrender-dev \
+    libgl1-mesa-glx \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Python dependencies
+RUN pip install --no-cache-dir uv
+
+COPY pyproject.toml ./
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv venv && . .venv/bin/activate && uv pip install -e .
+
+# Copy application code
+COPY src ./src
+
+# Create artifacts directory (will be populated from GCS or mounted volume)
+RUN mkdir -p /app/artifacts/model /app/artifacts/samples
+
+# Environment variables
+ENV PYTHONUNBUFFERED=1
+ENV PORT=8000
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+    CMD python -c "import requests; requests.get('http://localhost:8000/healthz', timeout=5)"
+
+# Run the application
+CMD ["/bin/bash", "-c", "source .venv/bin/activate && exec uvicorn src.app:app --host 0.0.0.0 --port ${PORT:-8000}"]
