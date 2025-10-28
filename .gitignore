@@ -239,6 +239,7 @@ wandb/
 
 # Testing and Evidence
 evidence/
+!docs/evidence/
 *.tar.gz
 .pytest_cache/
 htmlcov/

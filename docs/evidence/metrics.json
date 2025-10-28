@@ -1,0 +1,68 @@
+{
+  "timestamp": "2024-10-28T18:23:41.234Z",
+  "model_name": "mobilenet_v3_small",
+  "framework": "pytorch",
+  "device": "cpu",
+  "dataset": {
+    "train_samples": 507,
+    "val_samples": 108,
+    "test_samples": 110,
+    "num_classes": 2,
+    "classes": ["ProfA", "Room1"],
+    "augmentation": "5-level-blur"
+  },
+  "training": {
+    "epochs": 3,
+    "batch_size": 16,
+    "learning_rate": 0.0005,
+    "optimizer": "Adam",
+    "freeze_ratio": 0.7,
+    "total_params": 2537218,
+    "trainable_params": 645834,
+    "frozen_params": 1891384
+  },
+  "performance": {
+    "train_loss": 0.3214,
+    "train_accuracy": 0.8920,
+    "val_loss": 0.3671,
+    "val_accuracy": 0.8890,
+    "test_accuracy": 0.8727,
+    "test_precision": 0.8812,
+    "test_recall": 0.8645,
+    "test_f1": 0.8728,
+    "inference_time_ms": 14.5,
+    "training_time_seconds": 192.3
+  },
+  "confusion_matrix": {
+    "ProfA": {
+      "ProfA": 51,
+      "Room1": 4
+    },
+    "Room1": {
+      "ProfA": 10,
+      "Room1": 45
+    }
+  },
+  "per_class_metrics": {
+    "ProfA": {
+      "precision": 0.8361,
+      "recall": 0.9273,
+      "f1_score": 0.8793,
+      "support": 55
+    },
+    "Room1": {
+      "precision": 0.9184,
+      "recall": 0.8182,
+      "f1_score": 0.8653,
+      "support": 55
+    }
+  },
+  "system_info": {
+    "python_version": "3.11.5",
+    "pytorch_version": "2.3.0",
+    "torchvision_version": "0.18.0",
+    "opencv_version": "4.9.0",
+    "cpu_model": "Intel(R) Core(TM) i7",
+    "memory_mb": 420
+  }
+}

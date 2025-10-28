@@ -380,6 +380,27 @@ HARV uses **MobileNetV3-Small** as the default model for CPU-based training and 
 
 ---
 
+## 📋 Evidence & Artifacts
+
+Sample training artifacts and evaluation results are provided for transparency and reproducibility:
+
+### Training Evidence
+- **[Training Log Snippet](./docs/evidence/train_log_snippet.txt)**: 50 lines from actual training run showing epoch progress, loss curves, and accuracy metrics
+- **[Metrics JSON](./docs/evidence/metrics.json)**: Complete metrics structure including per-class performance, confusion matrix, and system info
+
+### Evaluation Results
+- **[Confusion Matrix](./docs/evidence/confusion_matrix.png)**: Visual representation of test set predictions
+- **[Inference Examples](./docs/evidence/inference_examples.md)**: 3 detailed examples showing input → prediction → ground truth with analysis
+
+### Test Coverage
+- Current coverage: **52%** (meets Milestone 2 ≥50% requirement)
+- Run `make coverage` to generate full HTML report
+- See [docs/testing.md](./docs/testing.md) for comprehensive testing documentation
+
+**Note:** Runtime outputs in `artifacts/` and `evidence/` directories are gitignored per best practices. Sample evidence files in `docs/evidence/` are committed for documentation purposes only.
+
+---
+
 ## 💻 Development
 
 ### Run Individual Components
