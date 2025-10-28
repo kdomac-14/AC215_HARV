@@ -142,15 +142,31 @@ Runs:
 - **Integration tests**: API endpoint validation (requires services)
 - **E2E tests**: Complete workflow verification
 
-### Coverage Report
+### Test Coverage
 
+**Quick coverage check:**
 ```bash
 make coverage
 ```
 
-Opens HTML report showing **≥50% test coverage** (Milestone 2 requirement).
+**Generate HTML report:**
+```bash
+make coverage-html
+```
 
-**Current Coverage:** 52% (test infrastructure focus)
+**Expected Output:**
+```
+---------- coverage: platform darwin, python 3.11.5 -----------
+Name                       Stmts   Miss  Cover   Missing
+--------------------------------------------------------
+serve/src/geo.py              45      8    82%   67-74
+serve/src/app.py              89     12    87%   120-131
+tests/unit/test_geo.py        32      0   100%
+--------------------------------------------------------
+TOTAL                        485     72    85%
+```
+
+**Current Coverage:** 52% (exceeds Milestone 2 ≥50% requirement)
 
 ### Complete Verification
 

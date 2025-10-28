@@ -78,8 +78,11 @@ verify: ## Verify complete system (start services, run tests, generate evidence)
 	@echo "Generating evidence..."
 	bash scripts/export_evidence.sh
 
-coverage: ## Generate and view coverage report (HTML + XML)
-	pytest tests/ --cov=src --cov-report=html:evidence/coverage/html --cov-report=xml:evidence/coverage/coverage.xml --cov-report=term-missing
+coverage: ## Run tests with coverage (terminal output)
+	pytest
+
+coverage-html: ## Generate HTML coverage report and open in browser
+	pytest --cov-report=html
 	@echo "Opening coverage report..."
 	@if command -v open &> /dev/null; then \
 		open evidence/coverage/html/index.html; \
