@@ -1,25 +1,65 @@
-import os, json, random, csv
+"""
+Preprocessing Component for HARV Pipeline.
+
+This module handles face detection, image normalization, and blur augmentation
+to prepare training data for the face recognition model.
+
+Features:
+- Real face dataset processing with train/val/test splits
+- Synthetic dataset generation as fallback
+- 5-level blur augmentation to simulate distance effects (σ=0.0-2.0)
+- Standard 224×224 image normalization
+
+Author: HARV Team
+License: MIT
+"""
+
+import csv
+import random
 from pathlib import Path
-import numpy as np
+from typing import Dict, List, Any
+
 import cv2
+import numpy as np
 import yaml
 
+# Directory paths
 DATA = Path("/app/data")
-INTERIM = DATA/"interim"
-PROCESSED = DATA/"processed"
+INTERIM = DATA / "interim"
+PROCESSED = DATA / "processed"
 PROCESSED.mkdir(parents=True, exist_ok=True)
 
+# Load parameters
 with open("/app/params.yaml") as f:
-    params = yaml.safe_load(f)
+    params: Dict[str, Any] = yaml.safe_load(f)
 
-img_size = params["img_size"]
-use_real_faces = params.get("use_real_faces", False)
-blur_augmentation = params.get("blur_augmentation", False)
-blur_strength = params.get("blur_strength", 0.3)
+img_size: int = params["img_size"]
+use_real_faces: bool = params.get("use_real_faces", False)
+blur_augmentation: bool = params.get("blur_augmentation", False)
+blur_strength: float = params.get("blur_strength", 0.3)
 
-def create_blur_augmentation(image, blur_levels):
-    """Create blur augmentations to simulate distance effects."""
-    augmented_images = []
+
+def create_blur_augmentation(image: np.ndarray, blur_levels: List[float]) -> List[np.ndarray]:
+    """
+    Create blur augmentations to simulate distance effects.
+    
+    Applies Gaussian blur at multiple sigma levels to simulate faces at
+    varying distances from camera (1m to 10m+).
+    
+    Args:
+        image: Input image as numpy array (H, W, C).
+        blur_levels: List of Gaussian blur sigma values (e.g., [0.0, 0.5, 1.0, 1.5, 2.0]).
+    
+    Returns:
+        List of augmented images with varying blur levels.
+    
+    Example:
+        >>> img = cv2.imread("face.jpg")
+        >>> blurred = create_blur_augmentation(img, [0.0, 1.0, 2.0])
+        >>> len(blurred)
+        3
+    """
+    augmented_images: List[np.ndarray] = []
     
     for blur_level in blur_levels:
         if blur_level == 0:
@@ -31,8 +71,20 @@ def create_blur_augmentation(image, blur_levels):
     
     return augmented_images
 
-def process_real_faces():
-    """Process real face dataset with blur augmentation."""
+
+def process_real_faces() -> bool:
+    """
+    Process real face dataset with blur augmentation.
+    
+    Reads manifest CSV, loads images, applies normalization and optional
+    blur augmentation, and saves to train/val/test splits.
+    
+    Returns:
+        True if processing succeeded, False if manifest missing/empty.
+    
+    Side Effects:
+        Writes processed images to PROCESSED directory organized by split and label.
+    """
     print("[preprocess] Processing real face dataset...")
     
     # Read manifest
@@ -52,8 +104,8 @@ def process_real_faces():
     # Process each image
     processed_count = 0
     for row in rows:
-        relpath = row["relpath"]
-        label = row["label"]
+        relpath: str = row["relpath"]
+        label: str = row["label"]
         
         # Determine split from path
         if "train/" in relpath:
@@ -95,28 +147,42 @@ def process_real_faces():
     print(f"[preprocess] Processed {processed_count} real face images")
     return True
 
-def create_synthetic_dataset():
-    """Create synthetic dataset as fallback."""
+
+def create_synthetic_dataset() -> None:
+    """
+    Create synthetic dataset as fallback.
+    
+    Generates simple geometric shapes (circles and rectangles) for quick testing
+    when real face data is unavailable. Used primarily for development and CI.
+    
+    Generates:
+        - 30 train images per class
+        - 10 val images per class
+        - 6 test images per class
+    
+    Side Effects:
+        Writes synthetic images to PROCESSED directory.
+    """
     print("[preprocess] Creating synthetic dataset...")
     
-    splits = ["train","val","test"]
-    counts = {"train":30,"val":10,"test":6}
-    classes = params["classes"]
+    splits = ["train", "val", "test"]
+    counts: Dict[str, int] = {"train": 30, "val": 10, "test": 6}
+    classes: List[str] = params["classes"]
 
     for split in splits:
-        outdir = PROCESSED/split
+        outdir = PROCESSED / split
         outdir.mkdir(parents=True, exist_ok=True)
         for cls in classes:
-            (outdir/cls).mkdir(parents=True, exist_ok=True)
+            (outdir / cls).mkdir(parents=True, exist_ok=True)
         for i in range(counts[split]):
             for cls in classes:
                 img = np.zeros((img_size, img_size, 3), np.uint8)
                 # draw class-specific primitive for separability
                 if cls == "ProfA":
-                    cv2.circle(img,(img_size//2,img_size//2),img_size//4,(255,255,255),-1)
+                    cv2.circle(img, (img_size // 2, img_size // 2), img_size // 4, (255, 255, 255), -1)
                 else:
-                    cv2.rectangle(img,(img_size//4,img_size//4),(3*img_size//4,3*img_size//4),(255,255,255),-1)
-                path = outdir/cls/f"{cls}_{i:03d}.jpg"
+                    cv2.rectangle(img, (img_size // 4, img_size // 4), (3 * img_size // 4, 3 * img_size // 4), (255, 255, 255), -1)
+                path = outdir / cls / f"{cls}_{i:03d}.jpg"
                 cv2.imwrite(str(path), img)
 
 # Main processing logic
