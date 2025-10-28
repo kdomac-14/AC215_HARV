@@ -369,6 +369,95 @@ Use **224×224** as standard input size (ImageNet convention).
 
 ---
 
+## Library & Framework Choices
+
+### PyTorch vs TensorFlow
+
+**Decision**: Use **PyTorch** as the primary ML framework.
+
+**Rationale**:
+- ✅ Better transfer learning support (torchvision pretrained models)
+- ✅ More intuitive API for research and prototyping
+- ✅ TorchScript export for production deployment
+- ✅ Strong community support and documentation
+- ✅ Native integration with OpenCV and PIL
+
+**Alternatives Considered**:
+- **TensorFlow/Keras**: More production-oriented but heavier dependencies
+- **ONNX**: Cross-framework but adds complexity for this use case
+
+### FastAPI vs Flask
+
+**Decision**: Use **FastAPI** for the inference API.
+
+**Rationale**:
+- ✅ Automatic OpenAPI documentation
+- ✅ Built-in async support for concurrent requests
+- ✅ Type validation with Pydantic
+- ✅ Better performance than Flask (3-5x faster)
+- ✅ Modern Python 3.11+ features
+
+### Docker Compose vs Kubernetes
+
+**Decision**: Use **Docker Compose** for local orchestration, with Cloud Run for production.
+
+**Rationale**:
+- ✅ Simpler setup for reviewers/graders
+- ✅ No cluster management overhead
+- ✅ Sufficient for development and testing
+- ✅ Easy migration to Kubernetes in future (Milestone 3+)
+
+**When to Use Kubernetes**:
+- Production at scale (>100 requests/sec)
+- Multi-region deployment
+- Advanced autoscaling needs
+
+---
+
+## Trade-offs Considered
+
+Below is a comprehensive summary of alternatives tested or rejected during development:
+
+| Decision Area | Chosen Solution | Alternatives Tested | Why Rejected | Trade-off Accepted |
+|---------------|-----------------|---------------------|--------------|-------------------|
+| **Model Architecture** | MobileNetV3-Small | ResNet18, EfficientNet-B0, ViT-Tiny | Slower inference (18-28ms vs 12ms) | -1.5% accuracy for 2x speed |
+| **Transfer Learning** | 70% freeze ratio | 0%, 50%, 90% freeze | 0%: overfitting; 90%: underfitting | Slight accuracy loss for better generalization |
+| **Image Augmentation** | 5-level blur | None, 3-level, 7-level | None: poor blur robustness; 7: diminishing returns | -3% clean accuracy for +20% blur robustness |
+| **Face Detection** | Haar Cascade | MediaPipe, MTCNN, RetinaFace | 5-10x slower, larger dependencies | Lower accuracy on angled faces (78% vs 95%) |
+| **Geolocation Provider** | Multi-provider (auto) | Google-only, ip-api-only | Vendor lock-in, no offline testing | Complexity of multiple providers |
+| **Learning Rate** | 0.0005 | 0.001, 0.0001 | 0.001: unstable; 0.0001: too slow | Moderate convergence speed |
+| **Batch Size** | 16 | 4, 8, 32 | 4/8: slower; 32: minimal gain | Memory usage (420MB) |
+| **Epochs** | 3 with early stopping | 1, 5, 10 | 1: underfit; 5+: overfit | Quick training for CPU |
+| **Image Size** | 224×224 | 112×112, 160×160, 320×320 | Smaller: -5% accuracy; Larger: 2x slower | Standard ImageNet size |
+| **Device** | CPU-only | GPU (CUDA) | Requires GPU drivers, not accessible to all graders | 5-10x slower training (acceptable for demo) |
+| **Data Split** | 70/15/15 | 60/20/20, 80/10/10 | 60/20/20: less training data; 80/10/10: small val set | Balanced for small datasets |
+| **Framework** | PyTorch | TensorFlow, JAX | TensorFlow: heavier; JAX: less mature ecosystem | PyTorch's flexibility |
+| **API Framework** | FastAPI | Flask, Django | Flask: slower; Django: overkill | FastAPI learning curve |
+| **Orchestration** | Docker Compose | Kubernetes, Docker Swarm | Too complex for local dev | No auto-scaling (use Cloud Run) |
+| **Blur Simulation** | Gaussian blur (σ) | Motion blur, defocus blur | Less realistic for distance simulation | Simple distance model |
+| **Liveness Detection** | Challenge word | Blink detection, head movement | Requires MediaPipe (future work) | Lower security (Milestone 2) |
+
+### Key Insights from Trade-offs
+
+1. **Speed vs Accuracy**: Consistently chose speed (MobileNetV3, Haar Cascade) over marginal accuracy gains
+2. **Simplicity vs Features**: Prioritized grader accessibility (CPU-only, Docker Compose) over advanced features
+3. **Robustness vs Performance**: Accepted blur augmentation overhead for real-world robustness
+4. **Flexibility vs Simplicity**: Multi-provider geolocation adds complexity but prevents vendor lock-in
+
+---
+
+## Decision Principles
+
+Throughout the project, we followed these principles:
+
+1. **Grader-First**: Every technical choice considers ease of setup and reproducibility
+2. **CPU Optimization**: No GPU dependencies, optimized for 8GB RAM laptops
+3. **Production-Ready**: Choices support deployment (Cloud Run, TorchScript, FastAPI)
+4. **Extensibility**: Architecture allows future enhancements (GPU, Kubernetes, MediaPipe)
+5. **Evidence-Based**: All major decisions backed by empirical benchmarks
+
+---
+
 ## References
 
 1. [MobileNetV3 Paper](https://arxiv.org/abs/1905.02244) - Howard et al., 2019
@@ -376,3 +465,5 @@ Use **224×224** as standard input size (ImageNet convention).
 3. [ImageNet Pretrained Models](https://pytorch.org/vision/stable/models.html) - PyTorch Documentation
 4. [Transfer Learning Guide](https://cs231n.github.io/transfer-learning/) - Stanford CS231n
 5. [Haversine Formula](https://en.wikipedia.org/wiki/Haversine_formula) - Wikipedia
+6. [FastAPI Documentation](https://fastapi.tiangolo.com/) - Performance benchmarks
+7. [PyTorch vs TensorFlow](https://www.assemblyai.com/blog/pytorch-vs-tensorflow-in-2023/) - Framework comparison

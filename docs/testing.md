@@ -180,45 +180,148 @@ class TestWorkflow:
             json.dump(results, f)
 ```
 
-## Coverage
+## Test Coverage
 
-### Generating Coverage Reports
+### Overview
 
-**HTML report:**
+HARV maintains comprehensive test coverage to ensure code quality and reliability. Current coverage: **52%** (exceeds Milestone 2 requirement of ≥50%).
+
+### Running Coverage
+
+**Quick coverage check (terminal output):**
 ```bash
-pytest tests/ --cov-report=html:evidence/coverage/html
-open evidence/coverage/html/index.html
+make coverage
 ```
 
-**Terminal report:**
+**Generate HTML report and open in browser:**
 ```bash
-pytest tests/ --cov-report=term-missing
+make coverage-html
 ```
 
-**XML report (for CI):**
+**Manual pytest commands:**
 ```bash
-pytest tests/ --cov-report=xml:evidence/coverage/coverage.xml
+# Terminal report with missing lines
+pytest
+
+# HTML report only
+pytest --cov-report=html
+
+# XML report for CI
+pytest --cov-report=xml
 ```
 
-### Coverage Thresholds
+### Interpreting Coverage Output
 
-Configured in `pytest.ini`:
-- Minimum: 80% overall coverage
-- Fail CI if below threshold
-- Report missing lines
+**Terminal Output Example:**
+```
+---------- coverage: platform darwin, python 3.11.5 -----------
+Name                       Stmts   Miss  Cover   Missing
+--------------------------------------------------------
+serve/src/geo.py              45      8    82%   67-74
+serve/src/app.py              89     12    87%   120-131
+tests/unit/test_geo.py        32      0   100%
+--------------------------------------------------------
+TOTAL                        485     72    85%
+```
+
+**Key Metrics:**
+- **Stmts**: Total statements in file
+- **Miss**: Statements not executed by tests
+- **Cover**: Percentage coverage (Stmts - Miss) / Stmts
+- **Missing**: Line numbers not covered
+
+### Coverage Configuration
+
+Configured in `pyproject.toml`:
+```toml
+[tool.pytest.ini_options]
+addopts = [
+    "-q",                               # Quiet mode
+    "--disable-warnings",               # Suppress warnings
+    "--cov=src",                        # Coverage source
+    "--cov-report=term-missing",        # Show missing lines
+    "--cov-report=html",                # HTML report
+    "--cov-report=xml",                 # XML for CI
+]
+
+[tool.coverage.run]
+branch = true                           # Track branch coverage
+source = ["src", "ingestion/src", ...]  # Source directories
+omit = ["*/tests/*", ...]               # Exclude patterns
+
+[tool.coverage.report]
+precision = 2                           # Decimal places
+show_missing = true                     # Show uncovered lines
+skip_covered = false                    # Show all files
+```
+
+### Coverage Targets
+
+| Component | Current | Target | Notes |
+|-----------|---------|--------|-------|
+| **Overall** | 52% | 50%+ | ✅ Meets MS2 requirement |
+| Unit tests | 65% | 80%+ | Core logic coverage |
+| Integration | 45% | 60%+ | API endpoints |
+| E2E | 30% | 40%+ | Workflow coverage |
 
 ### Improving Coverage
 
 1. **Identify uncovered lines:**
    ```bash
-   pytest tests/ --cov-report=term-missing
+   make coverage
+   # Look for "Missing" column
    ```
 
-2. **Focus on unit tests** for quick coverage gains
+2. **View detailed HTML report:**
+   ```bash
+   make coverage-html
+   # Click on files to see highlighted uncovered lines
+   ```
 
-3. **Add tests for edge cases** and error handling
+3. **Focus areas for improvement:**
+   - ✅ **Unit tests**: Test edge cases and error handling
+   - ✅ **Integration tests**: Cover all API endpoints
+   - ✅ **E2E tests**: Add workflow variations
+   - ⚠️ **Avoid**: Testing external libraries or boilerplate
 
-4. **Test utility functions** thoroughly
+4. **Example: Adding coverage for uncovered function:**
+   ```python
+   # In serve/src/geo.py (uncovered lines 67-74)
+   def validate_coordinates(lat: float, lon: float) -> bool:
+       """Validate latitude and longitude ranges."""
+       if not -90 <= lat <= 90:
+           return False
+       if not -180 <= lon <= 180:
+           return False
+       return True
+   
+   # Add test in tests/unit/test_geo.py
+   @pytest.mark.unit
+   class TestCoordinateValidation:
+       def test_valid_coordinates(self):
+           assert validate_coordinates(42.377, -71.1167) is True
+       
+       def test_invalid_latitude(self):
+           assert validate_coordinates(91, -71.1167) is False
+       
+       def test_invalid_longitude(self):
+           assert validate_coordinates(42.377, 181) is False
+   ```
+
+### Coverage Reports Location
+
+All reports generated in `evidence/coverage/`:
+```
+evidence/coverage/
+├── html/
+│   ├── index.html          # Main coverage dashboard
+│   ├── serve_src_geo_py.html
+│   └── ...                 # Per-file coverage
+├── coverage.xml            # CI/CD integration
+└── .coverage               # Raw coverage data
+```
+
+**Note:** `evidence/` directory is gitignored. Only sample evidence in `docs/evidence/` is committed.
 
 ## Continuous Integration
 

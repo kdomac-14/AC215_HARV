@@ -78,8 +78,11 @@ verify: ## Verify complete system (start services, run tests, generate evidence)
 	@echo "Generating evidence..."
 	bash scripts/export_evidence.sh
 
-coverage: ## Generate and view coverage report (HTML + XML)
-	pytest tests/ --cov=src --cov-report=html:evidence/coverage/html --cov-report=xml:evidence/coverage/coverage.xml --cov-report=term-missing
+coverage: ## Run tests with coverage (terminal output)
+	pytest
+
+coverage-html: ## Generate HTML coverage report and open in browser
+	pytest --cov-report=html
 	@echo "Opening coverage report..."
 	@if command -v open &> /dev/null; then \
 		open evidence/coverage/html/index.html; \
@@ -91,6 +94,28 @@ coverage: ## Generate and view coverage report (HTML + XML)
 
 evidence: ## Export all evidence for submission
 	bash scripts/export_evidence.sh
+
+# Linting and formatting targets
+fmt: ## Format code with ruff
+	ruff format .
+
+lint: ## Lint code with ruff
+	ruff check .
+
+typecheck: ## Type check with mypy
+	mypy ingestion/src preprocess/src train/src serve/src --ignore-missing-imports
+
+linkcheck: ## Check Markdown links in README and docs
+	@echo "Checking Markdown links..."
+	@if command -v markdown-link-check &> /dev/null; then \
+		markdown-link-check README.md --quiet --config .markdown-link-check.json || true; \
+		find docs -name "*.md" -exec markdown-link-check {} --quiet --config .markdown-link-check.json \; || true; \
+		echo "Link check complete"; \
+	else \
+		echo "Warning: markdown-link-check not installed"; \
+		echo "Install with: npm install -g markdown-link-check"; \
+		echo "Skipping link check..."; \
+	fi
 
 # GCP deployment targets
 gcp-setup: ## Setup GCP service account and download credentials

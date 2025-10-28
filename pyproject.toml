@@ -113,11 +113,12 @@ python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
 addopts = [
-    "-v",
+    "-q",
+    "--disable-warnings",
     "--strict-markers",
     "--strict-config",
     "--cov=src",
-    "--cov-report=term-missing:skip-covered",
+    "--cov-report=term-missing",
     "--cov-report=html:evidence/coverage/html",
     "--cov-report=xml:evidence/coverage/coverage.xml",
 ]
