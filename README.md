@@ -125,7 +125,7 @@ make test
 | **Evaluate** | Metrics computation | Checkpoint + test set | `metrics.json` | 10s |
 | **Export** | TorchScript export | Checkpoint | `model.torchscript.pt` | 5s |
 
-**Detailed docs:** [docs/PIPELINE.md](./docs/PIPELINE.md)
+**Detailed docs:** [docs/pipeline.md](./docs/pipeline.md)
 
 ---
 
@@ -514,7 +514,7 @@ make run
 |----------|---------|
 | **README.md** (this file) | Quick start, overview |
 | [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) | System design, component diagram, data flow |
-| [docs/PIPELINE.md](./docs/PIPELINE.md) | Detailed component docs, CLI usage, examples |
+| [docs/pipeline.md](./docs/pipeline.md) | Detailed component docs, CLI usage, examples |
 | [docs/DECISIONS.md](./docs/DECISIONS.md) | Model selection rationale, benchmarks, hyperparameters |
 | [docs/RUNBOOK.md](./docs/RUNBOOK.md) | Clean-clone setup, troubleshooting, workflows |
 | [docs/testing.md](./docs/testing.md) | Test suite, coverage, CI/CD |
