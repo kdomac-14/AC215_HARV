@@ -1,0 +1,11 @@
+{
+  "ok": true,
+  "label": "ProfA",
+  "confidence": 0.8734,
+  "latency_ms": 14,
+  "model": "mobilenet_v3_small",
+  "timestamp": "2025-10-28T18:00:00Z",
+  "liveness_challenge": "orchid",
+  "geolocation_verified": true,
+  "distance_m": 45.2
+}

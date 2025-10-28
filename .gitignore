@@ -206,10 +206,32 @@ marimo/_static/
 marimo/_lsp/
 __marimo__/
 
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
 # MS2 ML Pipeline
 artifacts/
-data/processed/
+data/raw/
 data/interim/
+data/processed/
+models/
+outputs/
+!outputs/.gitkeep
+!outputs/README.md
+!outputs/samples/
+outputs/samples/*
+!outputs/samples/README.md
+!outputs/samples/example_prediction.json
+!outputs/samples/example_metrics.json
 infra/logs/
 wandb/
 .dvc/
@@ -222,3 +244,7 @@ evidence/
 htmlcov/
 .coverage
 coverage.xml
+
+# Ruff already specified above but ensure it's there
+.ruff_cache/
+.mypy_cache/

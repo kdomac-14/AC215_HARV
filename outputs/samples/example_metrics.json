@@ -1,0 +1,46 @@
+{
+  "model": "mobilenet_v3_small",
+  "dataset": "synthetic",
+  "training": {
+    "epochs": 3,
+    "batch_size": 16,
+    "learning_rate": 0.0005,
+    "device": "cpu"
+  },
+  "epoch_metrics": [
+    {
+      "epoch": 1,
+      "train_loss": 0.6524,
+      "train_acc": 0.7241,
+      "val_loss": 0.4318,
+      "val_acc": 0.8519,
+      "time_s": 45.2
+    },
+    {
+      "epoch": 2,
+      "train_loss": 0.4012,
+      "train_acc": 0.8649,
+      "val_loss": 0.3893,
+      "val_acc": 0.8704,
+      "time_s": 44.8
+    },
+    {
+      "epoch": 3,
+      "train_loss": 0.3214,
+      "train_acc": 0.8921,
+      "val_loss": 0.3671,
+      "val_acc": 0.8889,
+      "time_s": 45.1
+    }
+  ],
+  "final_metrics": {
+    "best_epoch": 3,
+    "best_val_acc": 0.8889,
+    "test_acc": 0.8818,
+    "test_precision": 0.8923,
+    "test_recall": 0.8902,
+    "test_f1": 0.8912
+  },
+  "total_training_time_s": 135.1,
+  "model_size_mb": 14.2
+}

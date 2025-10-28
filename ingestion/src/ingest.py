@@ -1,6 +1,21 @@
-import os, csv, pathlib, yaml
-from pathlib import Path
+"""
+Ingestion Component for HARV Pipeline.
 
+This module creates a manifest CSV file that indexes available training data.
+Supports both real face datasets and synthetic data generation.
+
+Author: HARV Team
+License: MIT
+"""
+
+import csv
+import os
+from pathlib import Path
+from typing import Dict, Any
+
+import yaml
+
+# Directory paths
 RAW = Path("/app/data/raw")
 INTERIM = Path("/app/data/interim")
 INTERIM.mkdir(parents=True, exist_ok=True)
@@ -8,8 +23,8 @@ INTERIM.mkdir(parents=True, exist_ok=True)
 # Load parameters
 try:
     with open("/app/params.yaml") as f:
-        params = yaml.safe_load(f)
-    use_real_faces = params.get("use_real_faces", False)
+        params: Dict[str, Any] = yaml.safe_load(f) or {}
+    use_real_faces: bool = params.get("use_real_faces", False)
 except FileNotFoundError:
     print("[ingestion] params.yaml not found, using default settings")
     params = {}

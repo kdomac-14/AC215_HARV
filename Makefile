@@ -1,8 +1,26 @@
 SHELL := /bin/bash
-.PHONY: run down logs clean test test-unit test-integration test-e2e test-load verify coverage evidence help setup-faces fine-tune-blurry
+.PHONY: run down logs clean test test-unit test-integration test-e2e test-load verify coverage evidence help setup-faces fine-tune-blurry data preprocess train_cpu all
 
 run: ## Build and run full pipeline + API + dashboard
 	docker compose up --build
+
+# Individual component targets (for development/debugging)
+data: ## Run ingestion component only
+	docker compose run --rm ingestion
+
+preprocess: ## Run preprocessing component only
+	docker compose run --rm preprocess
+
+train_cpu: ## Run training component only (CPU mode)
+	docker compose run --rm train
+
+evaluate: ## Run evaluation component only
+	docker compose run --rm evaluate
+
+export: ## Run export component only
+	docker compose run --rm export
+
+all: data preprocess train_cpu evaluate export ## Run complete pipeline sequentially
 
 setup-faces: ## Setup real face dataset from Kaggle
 	python scripts/simple_face_setup.py
@@ -60,8 +78,8 @@ verify: ## Verify complete system (start services, run tests, generate evidence)
 	@echo "Generating evidence..."
 	bash scripts/export_evidence.sh
 
-coverage: ## Generate and view coverage report
-	pytest tests/ --cov-report=html:evidence/coverage/html --cov-report=term-missing
+coverage: ## Generate and view coverage report (HTML + XML)
+	pytest tests/ --cov=src --cov-report=html:evidence/coverage/html --cov-report=xml:evidence/coverage/coverage.xml --cov-report=term-missing
 	@echo "Opening coverage report..."
 	@if command -v open &> /dev/null; then \
 		open evidence/coverage/html/index.html; \
