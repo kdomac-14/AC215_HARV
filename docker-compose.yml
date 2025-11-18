@@ -68,12 +68,11 @@ services:
     env_file: .env
     restart: always
 
-  dashboard:
-    build: ./dashboard
+  frontend:
+    build: ./frontend
     depends_on:
       serve:
         condition: service_started
     ports:
-      - "${DASH_PORT:-8501}:8501"
-    env_file: .env
+      - "8080:80"
     restart: always

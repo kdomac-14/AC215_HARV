@@ -3,6 +3,7 @@ from pathlib import Path
 import numpy as np
 import cv2, torch
 from fastapi import FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from .geo import (
     save_calibration, load_calibration, haversine_m, get_client_ip, PROVIDER, log_attempt
@@ -22,6 +23,17 @@ else:
 CHALLENGE_WORD = os.getenv("CHALLENGE_WORD","orchid")
 
 app = FastAPI(title="HARV API", version="0.2.0")
+
+# Optional CORS for development (disabled by default since we use NGINX proxy)
+FRONTEND_ORIGIN = os.getenv("FRONTEND_ORIGIN")
+if FRONTEND_ORIGIN:
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=[FRONTEND_ORIGIN],
+        allow_credentials=False,
+        allow_methods=["GET", "POST", "OPTIONS"],
+        allow_headers=["Content-Type"],
+    )
 
 class VerifyIn(BaseModel):
     image_b64: str
