@@ -2,7 +2,7 @@
 
 ## Pipeline Overview
 
-The HARV ML pipeline consists of 5 sequential containerized components that transform raw images into a deployable face recognition model. Each component is independently containerized, enabling reproducible execution and easy debugging.
+The HARV ML pipeline consists of 5 sequential containerized components that transform raw images into a deployable lecture hall recognition model. Each component is independently containerized, enabling reproducible execution and easy debugging.
 
 **Full Pipeline Flow:**
 ```

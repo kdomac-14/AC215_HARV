@@ -40,7 +40,7 @@ export default function Landing() {
         <h3 className="text-lg font-semibold mb-3">How it works:</h3>
         <ol className="space-y-2 text-gray-700">
           <li><strong>1. Geolocation Verification:</strong> Students must be physically present in the classroom (GPS/IP-based)</li>
-          <li><strong>2. Face Recognition:</strong> Visual verification with liveness challenge ("word of the day")</li>
+          <li><strong>2. Lecture Hall Recognition:</strong> Visual verification of the classroom environment</li>
         </ol>
       </div>
     </div>

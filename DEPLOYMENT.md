@@ -66,9 +66,6 @@ API_URL=  # Will be filled after deployment
 
 # Required for geolocation
 GOOGLE_API_KEY=your_google_api_key_here
-
-# Optional: Challenge word
-CHALLENGE_WORD=orchid
 ```
 
 ### 3. Train Model Locally (if needed)

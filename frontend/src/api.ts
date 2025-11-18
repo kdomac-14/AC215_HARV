@@ -62,7 +62,6 @@ export interface GeoVerifyResponse {
 
 export interface VerifyPayload {
   image_b64: string
-  challenge_word?: string
 }
 
 export interface VerifyResponse {

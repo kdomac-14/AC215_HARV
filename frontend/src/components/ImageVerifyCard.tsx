@@ -5,9 +5,6 @@ import JsonViewer from './JsonViewer'
 
 export default function ImageVerifyCard() {
   const [file, setFile] = useState<File | null>(null)
-  const [challengeWord, setChallengeWord] = useState(
-    import.meta.env.VITE_CHALLENGE_WORD || 'orchid'
-  )
   const [isLoading, setIsLoading] = useState(false)
   const [status, setStatus] = useState<{ type: 'success' | 'error' | 'info'; message: string } | null>(null)
   const [response, setResponse] = useState<any>(null)
@@ -44,7 +41,6 @@ export default function ImageVerifyCard() {
         try {
           const res = await verifyImage({
             image_b64: base64Data,
-            challenge_word: challengeWord,
           })
 
           if (res.data.ok) {
@@ -54,12 +50,7 @@ export default function ImageVerifyCard() {
             })
           } else {
             const reason = res.data.reason || 'unknown'
-            if (reason === 'challenge_failed') {
-              setStatus({
-                type: 'error',
-                message: '❌ Challenge word incorrect',
-              })
-            } else if (reason === 'model_missing') {
+            if (reason === 'model_missing') {
               setStatus({
                 type: 'error',
                 message: '❌ Model not loaded on server',
@@ -93,28 +84,12 @@ export default function ImageVerifyCard() {
 
   return (
     <div className="bg-white rounded-lg shadow-md p-6">
-      <h2 className="text-2xl font-bold mb-4">📷 Image Verification</h2>
+      <h2 className="text-2xl font-bold mb-4">📷 Lecture Hall Recognition</h2>
       <p className="text-gray-600 mb-4">
-        Upload a photo with the challenge word for visual verification.
+        Upload a photo of your lecture hall for visual verification.
       </p>
 
       <form onSubmit={handleSubmit} className="space-y-4">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Challenge Word
-          </label>
-          <input
-            type="text"
-            value={challengeWord}
-            onChange={(e) => setChallengeWord(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            required
-          />
-          <p className="text-xs text-gray-500 mt-1">
-            Default challenge word is "{import.meta.env.VITE_CHALLENGE_WORD || 'orchid'}"
-          </p>
-        </div>
-
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
             Upload Image

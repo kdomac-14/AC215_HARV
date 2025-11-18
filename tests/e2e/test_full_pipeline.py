@@ -54,10 +54,9 @@ class TestE2EWorkflow:
         _, buf = cv2.imencode(".jpg", img)
         img_b64 = base64.b64encode(buf).decode()
         
-        # Step 5: Verify image with challenge word
+        # Step 5: Verify lecture hall image
         verify_payload = {
-            "image_b64": img_b64,
-            "challenge_word": "orchid"
+            "image_b64": img_b64
         }
         verify_resp = requests.post(
             f"{api_base_url}/verify",
@@ -84,27 +83,7 @@ class TestE2EWorkflow:
     
     def test_error_handling_workflow(self, api_base_url, wait_for_services):
         """Test error handling in various scenarios."""
-        # Test 1: Wrong challenge word
-        img = np.ones((224, 224, 3), dtype=np.uint8) * 255
-        _, buf = cv2.imencode(".jpg", img)
-        img_b64 = base64.b64encode(buf).decode()
-        
-        verify_payload = {
-            "image_b64": img_b64,
-            "challenge_word": "wrong_word"
-        }
-        response = requests.post(
-            f"{api_base_url}/verify",
-            json=verify_payload,
-            timeout=5
-        )
-        
-        assert response.status_code == 200
-        data = response.json()
-        assert data["ok"] is False
-        assert data["reason"] == "challenge_failed"
-        
-        # Test 2: Verify geo status works
+        # Test 1: Verify geo status works
         status_resp = requests.get(f"{api_base_url}/geo/status", timeout=5)
         assert status_resp.status_code == 200
         assert status_resp.json()["ok"] is True
@@ -124,8 +103,7 @@ class TestE2EPerformance:
         img_b64 = base64.b64encode(buf).decode()
         
         verify_payload = {
-            "image_b64": img_b64,
-            "challenge_word": "orchid"
+            "image_b64": img_b64
         }
         
         start = time.time()
@@ -154,8 +132,7 @@ class TestE2EPerformance:
         img_b64 = base64.b64encode(buf).decode()
         
         verify_payload = {
-            "image_b64": img_b64,
-            "challenge_word": "orchid"
+            "image_b64": img_b64
         }
         
         # Send 5 sequential requests
