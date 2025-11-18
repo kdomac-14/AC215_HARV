@@ -6,7 +6,7 @@
 
 > **Milestone 2**: Transfer Learning Vision Track with Full Containerization + Geolocation-First Verification
 
-End-to-end ML pipeline for face recognition with geolocation-based attendance verification. Uses transfer learning (MobileNetV3 on CPU) with containerized components for reproducible deployment.
+End-to-end ML pipeline for lecture hall recognition with geolocation-based attendance verification. Uses transfer learning (MobileNetV3 on CPU) with containerized components for reproducible deployment.
 
 ---
 
@@ -15,7 +15,7 @@ End-to-end ML pipeline for face recognition with geolocation-based attendance ve
 HARV enables classroom attendance verification through a two-stage process:
 
 1. **Geolocation Verification** (Phase 0): Students must be physically present in the classroom (IP/GPS-based)
-2. **Face Recognition** (Phase 1): Visual verification with liveness challenge ("word of the day")
+2. **Lecture Hall Recognition** (Phase 1): Visual verification of the classroom environment
 
 **Key Features:**
 - CPU-optimized training (no GPU required for graders)
@@ -189,7 +189,6 @@ Builds, tests, and generates evidence package for submission.
 WANDB_DISABLED=true           # Set false to enable W&B tracking
 SERVICE_PORT=8000             # API port
 DASH_PORT=8501                # Dashboard port
-CHALLENGE_WORD=orchid         # Liveness challenge word
 
 # Geolocation
 GEO_PROVIDER=mock             # auto | google | ipapi | mock
@@ -341,7 +340,7 @@ HARV uses **MobileNetV3-Small** as the default model for CPU-based training and 
 
 1. **Speed**: Must train quickly on CPU (no GPU required for graders)
 2. **Efficiency**: Small model size for fast deployment and cold starts
-3. **Accuracy**: Sufficient performance for classroom face recognition (≥85%)
+3. **Accuracy**: Sufficient performance for classroom lecture hall recognition (≥85%)
 
 **Alternatives Considered:**
 - **ResNet18**: Classic CNN architecture, well-proven but slower
@@ -375,7 +374,7 @@ HARV uses **MobileNetV3-Small** as the default model for CPU-based training and 
 - ✅ **Fastest Inference**: 12-15ms vs 18-28ms — critical for real-time attendance
 - ✅ **Smallest Size**: 14MB vs 21-47MB — faster Cloud Run cold starts
 - ✅ **Lowest Memory**: 380-420MB vs 520-720MB — runs on any laptop
-- ✅ **Good Accuracy**: 87-89% — sufficient for classroom verification
+- ✅ **Good Accuracy**: 87-89% — sufficient for lecture hall verification
 
 **Trade-offs Accepted:**
 - ⚠️ 1-2% lower accuracy than EfficientNet-B0 (acceptable for use case)
@@ -577,7 +576,7 @@ make evidence
 - [x] Transfer learning vision track (MobileNetV3)
 - [x] CPU-only training and inference
 - [x] Full Docker containerization
-- [x] Basic liveness detection (challenge word)
+- [x] Lecture hall recognition verification
 - [x] Real face dataset support
 - [x] Blur augmentation for robustness
 - [x] Comprehensive testing (unit, integration, e2e, load)
@@ -591,7 +590,7 @@ make evidence
 
 ## 🚀 Future Work (Milestone 3+)
 
-- [ ] MediaPipe blink detection (liveness)
+- [ ] Enhanced lecture hall feature detection
 - [ ] GPU acceleration support
 - [ ] Model quantization for edge deployment
 - [ ] Kubernetes horizontal scaling

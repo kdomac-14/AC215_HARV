@@ -113,31 +113,12 @@ class TestGeoVerification:
 
 @pytest.mark.integration
 class TestVerifyEndpoint:
-    """Test image verification endpoint."""
+    """Test lecture hall recognition endpoint."""
     
-    def test_verify_missing_challenge(self, api_base_url, sample_image_b64, wait_for_services):
-        """Test /verify fails with wrong challenge word."""
+    def test_verify_with_image(self, api_base_url, sample_image_b64, wait_for_services):
+        """Test /verify succeeds with valid image."""
         payload = {
-            "image_b64": sample_image_b64,
-            "challenge_word": "wrong_word"
-        }
-        
-        response = requests.post(
-            f"{api_base_url}/verify",
-            json=payload,
-            timeout=5
-        )
-        
-        assert response.status_code == 200
-        data = response.json()
-        assert data["ok"] is False
-        assert data["reason"] == "challenge_failed"
-    
-    def test_verify_with_correct_challenge(self, api_base_url, sample_image_b64, challenge_word, wait_for_services):
-        """Test /verify succeeds with correct challenge word."""
-        payload = {
-            "image_b64": sample_image_b64,
-            "challenge_word": challenge_word
+            "image_b64": sample_image_b64
         }
         
         response = requests.post(
@@ -156,11 +137,10 @@ class TestVerifyEndpoint:
             assert data["label"] in ["ProfA", "Room1"]
             assert 0 <= data["confidence"] <= 1
     
-    def test_verify_invalid_base64(self, api_base_url, challenge_word, wait_for_services):
+    def test_verify_invalid_base64(self, api_base_url, wait_for_services):
         """Test /verify handles invalid image data."""
         payload = {
-            "image_b64": "invalid_base64!@#$",
-            "challenge_word": challenge_word
+            "image_b64": "invalid_base64!@#$"
         }
         
         response = requests.post(

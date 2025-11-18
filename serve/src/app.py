@@ -20,8 +20,6 @@ if META_PATH.exists():
 else:
     META, model, IMG_SIZE, CLASSES = {}, None, 224, ["ProfA","Room1"]
 
-CHALLENGE_WORD = os.getenv("CHALLENGE_WORD","orchid")
-
 app = FastAPI(title="HARV API", version="0.2.0")
 
 # Optional CORS for development (disabled by default since we use NGINX proxy)
@@ -37,7 +35,6 @@ if FRONTEND_ORIGIN:
 
 class VerifyIn(BaseModel):
     image_b64: str
-    challenge_word: str | None = None
 
 class CalibrateIn(BaseModel):
     lat: float
@@ -110,10 +107,8 @@ def preprocess(img):
 
 @app.post("/verify")
 def verify(inp: VerifyIn):
-    # (unchanged MS2 demo classifier; photo step happens AFTER geo in the app flow)
+    # Lecture hall recognition endpoint; photo step happens AFTER geo in the app flow
     t0 = time.time()
-    if (inp.challenge_word or "").strip().lower() != CHALLENGE_WORD.lower():
-        return {"ok": False, "reason":"challenge_failed","latency_ms": int((time.time()-t0)*1000)}
     if model is None:
         return {"ok": False, "reason":"model_missing"}
 

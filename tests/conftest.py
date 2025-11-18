@@ -72,12 +72,6 @@ def dashboard_url() -> str:
 
 
 @pytest.fixture(scope="session")
-def challenge_word() -> str:
-    """Return challenge word from environment or default."""
-    return os.getenv("CHALLENGE_WORD", "orchid")
-
-
-@pytest.fixture(scope="session")
 def wait_for_services(api_base_url: str) -> Generator[None, None, None]:
     """Wait for services to be ready before running tests."""
     import requests

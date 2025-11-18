@@ -15,7 +15,7 @@ Use **MobileNetV3-Small** as the default model for CPU-based training and infere
 - CPU-only training (no GPU dependency for graders/reviewers)
 - Fast inference (<100ms on CPU)
 - Small model size (<20MB for quick deployment)
-- Sufficient accuracy for face recognition (≥85% on validation)
+- Sufficient accuracy for lecture hall recognition (≥85% on validation)
 
 **Alternatives Considered:**
 1. **ResNet18**: Classic CNN, proven architecture
@@ -91,7 +91,7 @@ Use **ImageNet pretrained weights** with **70% layer freezing** and fine-tune on
 **Why Transfer Learning:**
 - Small dataset (100-1000 images per class)
 - Limited training time (CPU-only)
-- Face recognition shares low-level features with ImageNet (edges, textures)
+- Lecture hall recognition shares low-level features with ImageNet (edges, textures)
 
 **Freezing Ratio Experiments:**
 
@@ -230,7 +230,7 @@ Use **OpenCV Haar Cascade classifier** for face detection in preprocessing.
 | MTCNN | 45ms | 98% | 92% | +30MB |
 | MediaPipe | 50ms | 99% | 95% | +15MB |
 
-**Conclusion**: Haar Cascades sufficient for controlled classroom environment (frontal faces). Can upgrade to MediaPipe for Milestone 3 liveness detection.
+**Conclusion**: Haar Cascades sufficient for controlled classroom environment (frontal faces). Can upgrade to MediaPipe for Milestone 3 for enhanced detection.
 
 ---
 
@@ -435,7 +435,7 @@ Below is a comprehensive summary of alternatives tested or rejected during devel
 | **API Framework** | FastAPI | Flask, Django | Flask: slower; Django: overkill | FastAPI learning curve |
 | **Orchestration** | Docker Compose | Kubernetes, Docker Swarm | Too complex for local dev | No auto-scaling (use Cloud Run) |
 | **Blur Simulation** | Gaussian blur (σ) | Motion blur, defocus blur | Less realistic for distance simulation | Simple distance model |
-| **Liveness Detection** | Challenge word | Blink detection, head movement | Requires MediaPipe (future work) | Lower security (Milestone 2) |
+| **Verification Method** | Geolocation + Lecture Hall Recognition | Blink detection, head movement | Requires MediaPipe (future work) | Sufficient for Milestone 2 |
 
 ### Key Insights from Trade-offs
 

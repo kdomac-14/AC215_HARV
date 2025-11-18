@@ -2,7 +2,7 @@
 
 ## System Overview
 
-HARV (Harvard Attendance Recognition and Verification) is a containerized ML pipeline for face recognition with geolocation-based attendance verification. The system uses transfer learning on CPU-friendly models to enable deployment without GPU dependencies.
+HARV (Harvard Attendance Recognition and Verification) is a containerized ML pipeline for lecture hall recognition with geolocation-based attendance verification. The system uses transfer learning on CPU-friendly models to enable deployment without GPU dependencies.
 
 ## Component Architecture
 
