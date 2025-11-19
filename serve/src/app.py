@@ -5,9 +5,11 @@ import cv2, torch
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+from typing import List, Optional
 from .geo import (
     save_calibration, load_calibration, haversine_m, get_client_ip, PROVIDER, log_attempt
 )
+from . import database as db
 
 # Load model metadata (if present) for /verify demo
 META_PATH = Path("/app/artifacts/model/metadata.json")
@@ -46,6 +48,34 @@ class GeoVerifyIn(BaseModel):
     client_gps_lat: float | None = None
     client_gps_lon: float | None = None
     client_gps_accuracy_m: float | None = None
+
+class ClassCreate(BaseModel):
+    name: str
+    code: str
+    lat: float
+    lon: float
+    epsilon_m: float
+    secret_word: str
+    room_photos: List[str] = []  # base64 encoded images
+    professor_id: str = "demo_prof"
+    professor_name: str = "Demo Professor"
+
+class EnrollmentCreate(BaseModel):
+    class_code: str
+    student_id: str
+
+class CheckInRequest(BaseModel):
+    class_code: str
+    student_id: str
+    image_b64: str
+    lat: Optional[float] = None
+    lon: Optional[float] = None
+    accuracy_m: Optional[float] = None
+
+class ManualOverrideRequest(BaseModel):
+    class_code: str
+    student_id: str
+    secret_word: str
 
 @app.get("/healthz")
 def healthz():
@@ -133,3 +163,199 @@ def verify(inp: VerifyIn):
     with open("/app/artifacts/samples/sample_response.json","w") as f:
         json.dump(result, f, indent=2)
     return result
+
+# ============================================================================
+# PROFESSOR ENDPOINTS
+# ============================================================================
+
+@app.post("/professor/classes")
+def create_class(class_data: ClassCreate):
+    """Professor creates a new class with location and room photos."""
+    try:
+        new_class = db.create_class(class_data.dict())
+        return {"ok": True, "class": new_class}
+    except Exception as e:
+        return {"ok": False, "reason": str(e)}
+
+@app.get("/professor/classes/{professor_id}")
+def get_professor_classes(professor_id: str):
+    """Get all classes for a professor."""
+    classes = db.get_classes_by_professor(professor_id)
+    return classes
+
+# ============================================================================
+# STUDENT ENDPOINTS
+# ============================================================================
+
+@app.get("/student/classes")
+def get_available_classes():
+    """Get all available classes for enrollment."""
+    classes = db.get_all_classes()
+    # Remove sensitive data (secret_word, room_photos)
+    for cls in classes:
+        cls.pop("secret_word", None)
+        cls.pop("room_photos", None)
+    return classes
+
+@app.post("/student/enroll")
+def enroll_in_class(enrollment: EnrollmentCreate):
+    """Student enrolls in a class."""
+    # Check if class exists
+    class_obj = db.get_class_by_code(enrollment.class_code)
+    if not class_obj:
+        return {"ok": False, "reason": "class_not_found"}
+    
+    result = db.enroll_student(enrollment.class_code, enrollment.student_id)
+    return result
+
+@app.get("/student/classes/{student_id}")
+def get_student_classes(student_id: str):
+    """Get all classes a student is enrolled in."""
+    classes = db.get_student_classes(student_id)
+    # Remove sensitive data
+    for cls in classes:
+        cls.pop("secret_word", None)
+        cls.pop("room_photos", None)
+    return classes
+
+@app.post("/student/checkin")
+async def student_checkin(req: Request, checkin: CheckInRequest):
+    """Integrated check-in: geolocation + vision verification."""
+    # 1. Check if class exists
+    class_obj = db.get_class_by_code(checkin.class_code)
+    if not class_obj:
+        return {"ok": False, "reason": "class_not_found"}
+    
+    # 2. Check if student is enrolled
+    if not db.is_student_enrolled(checkin.class_code, checkin.student_id):
+        return {"ok": False, "reason": "not_enrolled"}
+    
+    # 3. Geolocation verification
+    geo_ok = False
+    distance_m = None
+    
+    if checkin.lat is not None and checkin.lon is not None:
+        # Use provided GPS coordinates
+        distance_m = haversine_m(class_obj["lat"], class_obj["lon"], checkin.lat, checkin.lon)
+        geo_ok = distance_m <= class_obj["epsilon_m"]
+    else:
+        # Try IP-based geolocation
+        client = req.client.host if req.client else ""
+        ip = get_client_ip(req.headers, client)
+        loc = PROVIDER.locate(ip)
+        if loc:
+            lat, lon, _ = loc
+            distance_m = haversine_m(class_obj["lat"], class_obj["lon"], lat, lon)
+            geo_ok = distance_m <= class_obj["epsilon_m"]
+    
+    if not geo_ok:
+        # Record failed check-in
+        db.record_checkin({
+            "class_code": checkin.class_code,
+            "student_id": checkin.student_id,
+            "success": False,
+            "geo_verified": False,
+            "vision_verified": False,
+            "distance_m": distance_m,
+            "reason": "location_failed",
+        })
+        return {
+            "ok": False,
+            "reason": "location_failed",
+            "distance_m": distance_m,
+            "epsilon_m": class_obj["epsilon_m"],
+            "needs_manual_override": True,
+        }
+    
+    # 4. Vision verification (lecture hall recognition)
+    vision_ok = False
+    label = None
+    confidence = 0.0
+    
+    if model is not None:
+        try:
+            img_bytes = base64.b64decode(checkin.image_b64)
+            img = cv2.imdecode(np.frombuffer(img_bytes, np.uint8), cv2.IMREAD_COLOR)
+            
+            if img is not None:
+                x = preprocess(img)
+                with torch.no_grad():
+                    logits = model(x)
+                    pred = int(torch.argmax(logits, dim=1).item())
+                    confidence = float(torch.softmax(logits, dim=1)[0, pred].item())
+                    label = CLASSES[pred]
+                
+                # Check if predicted label matches expected class
+                # For now, accept any prediction with confidence > 0.5
+                vision_ok = confidence > 0.5
+        except:
+            pass
+    
+    if not vision_ok:
+        # Record failed check-in
+        db.record_checkin({
+            "class_code": checkin.class_code,
+            "student_id": checkin.student_id,
+            "success": False,
+            "geo_verified": True,
+            "vision_verified": False,
+            "distance_m": distance_m,
+            "label": label,
+            "confidence": confidence,
+            "reason": "recognition_failed",
+        })
+        return {
+            "ok": False,
+            "reason": "recognition_failed",
+            "distance_m": distance_m,
+            "label": label,
+            "confidence": confidence,
+            "needs_manual_override": True,
+        }
+    
+    # 5. Success - record check-in
+    db.record_checkin({
+        "class_code": checkin.class_code,
+        "student_id": checkin.student_id,
+        "success": True,
+        "geo_verified": True,
+        "vision_verified": True,
+        "distance_m": distance_m,
+        "label": label,
+        "confidence": confidence,
+    })
+    
+    return {
+        "ok": True,
+        "distance_m": distance_m,
+        "label": label,
+        "confidence": confidence,
+    }
+
+@app.post("/student/manual-override")
+def manual_override(override: ManualOverrideRequest):
+    """Manual check-in using secret word from professor."""
+    # 1. Check if class exists
+    class_obj = db.get_class_by_code(override.class_code)
+    if not class_obj:
+        return {"ok": False, "reason": "class_not_found"}
+    
+    # 2. Check if student is enrolled
+    if not db.is_student_enrolled(override.class_code, override.student_id):
+        return {"ok": False, "reason": "not_enrolled"}
+    
+    # 3. Verify secret word
+    if override.secret_word != class_obj["secret_word"]:
+        return {"ok": False, "reason": "invalid_secret_word"}
+    
+    # 4. Record successful manual check-in
+    db.record_checkin({
+        "class_code": override.class_code,
+        "student_id": override.student_id,
+        "success": True,
+        "method": "manual_override",
+        "geo_verified": False,
+        "vision_verified": False,
+    })
+    
+    return {"ok": True, "method": "manual_override"}
