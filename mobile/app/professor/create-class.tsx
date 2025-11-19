@@ -7,12 +7,14 @@ import {
   TouchableOpacity,
   ScrollView,
   Alert,
-  Image,
   ActivityIndicator,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import * as Location from 'expo-location';
+import axios from 'axios';
 import api, { ClassroomTemplate } from '../../utils/api';
+import FALLBACK_CLASSROOMS from '../../data/classroomCatalog';
+import { PROFESSOR_ID, PROFESSOR_NAME } from '../../utils/constants';
 
 export default function CreateClassScreen() {
   const router = useRouter();
@@ -25,11 +27,17 @@ export default function CreateClassScreen() {
   const [classrooms, setClassrooms] = useState<ClassroomTemplate[]>([]);
   const [catalogLoading, setCatalogLoading] = useState(true);
   const [selectedClassroomId, setSelectedClassroomId] = useState<string | null>(null);
+  const [isCatalogOpen, setIsCatalogOpen] = useState(false);
+
+  const selectedClassroom = selectedClassroomId
+    ? classrooms.find((room) => room.id === selectedClassroomId) ?? null
+    : null;
 
   useEffect(() => {
     generateClassCode();
     generateSecretWord();
     getCurrentLocation();
+    applyCatalog(FALLBACK_CLASSROOMS);
     loadClassroomCatalog();
   }, []);
 
@@ -66,17 +74,38 @@ export default function CreateClassScreen() {
     }
   };
 
+  const applyCatalog = (catalog: ClassroomTemplate[]) => {
+    setClassrooms(catalog);
+    if (catalog.length === 0) {
+      setSelectedClassroomId(null);
+      return;
+    }
+
+    setSelectedClassroomId((prev) => {
+      if (prev && catalog.some((room) => room.id === prev)) {
+        return prev;
+      }
+      return catalog[0].id;
+    });
+    setIsCatalogOpen(false);
+  };
+
   const loadClassroomCatalog = async () => {
     try {
       setCatalogLoading(true);
       const data = await api.getClassroomCatalog();
-      setClassrooms(data);
-      if (data.length > 0) {
-        setSelectedClassroomId(data[0].id);
-      }
+      applyCatalog(data);
     } catch (error) {
-      console.error('Failed to load classrooms', error);
-      Alert.alert('Error', 'Unable to load classroom catalog. Please try again.');
+      console.warn('[create-class] Failed to load classrooms', {
+        error:
+          axios.isAxiosError(error) && error.response
+            ? {
+                status: error.response.status,
+                url: error.config?.url,
+                data: error.response.data,
+              }
+            : String(error),
+      });
     } finally {
       setCatalogLoading(false);
     }
@@ -93,7 +122,6 @@ export default function CreateClassScreen() {
       return;
     }
 
-    const selectedClassroom = classrooms.find((room) => room.id === selectedClassroomId);
     if (!selectedClassroom) {
       Alert.alert('Error', 'Please select a classroom template');
       return;
@@ -110,6 +138,8 @@ export default function CreateClassScreen() {
         epsilon_m: parseFloat(epsilon),
         secret_word: secretWord,
         classroom_id: selectedClassroom.id,
+        professor_id: PROFESSOR_ID,
+        professor_name: PROFESSOR_NAME,
       };
 
       await api.createClass(classData);
@@ -200,49 +230,59 @@ export default function CreateClassScreen() {
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Select Classroom</Text>
         <Text style={styles.helperText}>
-          Choose from pre-trained classrooms. Each option includes high-quality reference photos.
+          Choose the lecture hall template that matches your class.
         </Text>
 
-        {catalogLoading ? (
+        <View style={styles.dropdownContainer}>
+          <TouchableOpacity
+            style={styles.dropdownTrigger}
+            onPress={() => {
+              if (classrooms.length > 0) {
+                setIsCatalogOpen((prev) => !prev);
+              }
+            }}
+            disabled={classrooms.length === 0}
+          >
+            <View style={{ flex: 1 }}>
+              <Text style={styles.dropdownValue}>
+                {selectedClassroom?.name || 'No templates available'}
+              </Text>
+              {selectedClassroom?.building && (
+                <Text style={styles.dropdownMeta}>{selectedClassroom.building}</Text>
+              )}
+            </View>
+            <Text style={styles.dropdownChevron}>{isCatalogOpen ? '▲' : '▼'}</Text>
+          </TouchableOpacity>
+
+          {isCatalogOpen && classrooms.length > 0 && (
+            <ScrollView style={styles.dropdownList}>
+              {classrooms.map((room) => (
+                <TouchableOpacity
+                  key={room.id}
+                  style={[
+                    styles.dropdownOption,
+                    selectedClassroomId === room.id && styles.dropdownOptionSelected,
+                  ]}
+                  onPress={() => {
+                    setSelectedClassroomId(room.id);
+                    setIsCatalogOpen(false);
+                  }}
+                >
+                  <Text style={styles.dropdownOptionName}>{room.name}</Text>
+                  <Text style={styles.dropdownOptionMeta}>
+                    {room.building || 'Unknown building'} • {room.photo_count} ref photos
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          )}
+        </View>
+
+        {catalogLoading && (
           <View style={styles.catalogLoading}>
             <ActivityIndicator />
-            <Text style={styles.helperText}>Loading classroom catalog…</Text>
+            <Text style={styles.helperText}>Refreshing catalog…</Text>
           </View>
-        ) : classrooms.length === 0 ? (
-          <View style={styles.catalogLoading}>
-            <Text style={styles.helperText}>No classroom templates available.</Text>
-          </View>
-        ) : (
-          classrooms.map((room) => {
-            const isSelected = selectedClassroomId === room.id;
-            return (
-              <TouchableOpacity
-                key={room.id}
-                style={[styles.classroomCard, isSelected && styles.classroomCardSelected]}
-                onPress={() => setSelectedClassroomId(room.id)}
-              >
-                <View style={styles.classroomHeader}>
-                  <View>
-                    <Text style={styles.classroomName}>{room.name}</Text>
-                    {room.building && (
-                      <Text style={styles.classroomMeta}>📍 {room.building}</Text>
-                    )}
-                  </View>
-                  {isSelected && <Text style={styles.classroomSelected}>Selected</Text>}
-                </View>
-                {room.preview_photo && (
-                  <Image
-                    source={{ uri: `data:image/png;base64,${room.preview_photo}` }}
-                    style={styles.classroomPreview}
-                  />
-                )}
-                {room.description && (
-                  <Text style={styles.classroomDescription}>{room.description}</Text>
-                )}
-                <Text style={styles.classroomMeta}>📸 {room.photo_count} reference photos</Text>
-              </TouchableOpacity>
-            );
-          })
         )}
       </View>
 
@@ -338,53 +378,67 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
   },
-  classroomCard: {
+  dropdownContainer: {
+    marginTop: 12,
+  },
+  dropdownTrigger: {
     borderWidth: 1,
-    borderColor: '#e0e0e0',
-    borderRadius: 12,
-    padding: 15,
-    marginTop: 15,
-    backgroundColor: '#fafafa',
-  },
-  classroomCardSelected: {
-    borderColor: '#A51C30',
-    backgroundColor: '#fff0f3',
-  },
-  classroomHeader: {
+    borderColor: '#d1d5db',
+    borderRadius: 10,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 10,
+    alignItems: 'center',
+    backgroundColor: '#fff',
   },
-  classroomName: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#222',
+  dropdownValue: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: '#111',
   },
-  classroomMeta: {
-    fontSize: 13,
-    color: '#666',
+  dropdownMeta: {
+    fontSize: 14,
+    color: '#6b7280',
     marginTop: 2,
   },
-  classroomSelected: {
-    fontSize: 12,
-    color: '#A51C30',
-    fontWeight: '700',
+  dropdownChevron: {
+    fontSize: 18,
+    color: '#6b7280',
+    marginLeft: 12,
   },
-  classroomPreview: {
-    width: '100%',
-    height: 150,
-    borderRadius: 8,
-    marginBottom: 10,
-    marginTop: 10,
+  dropdownList: {
+    marginTop: 8,
+    borderWidth: 1,
+    borderColor: '#d1d5db',
+    borderRadius: 10,
+    backgroundColor: '#fff',
+    maxHeight: 240,
   },
-  classroomDescription: {
-    fontSize: 14,
-    color: '#444',
-    marginBottom: 6,
+  dropdownOption: {
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f1f5f9',
+  },
+  dropdownOptionSelected: {
+    backgroundColor: '#eff6ff',
+  },
+  dropdownOptionName: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: '#111',
+  },
+  dropdownOptionMeta: {
+    fontSize: 13,
+    color: '#6b7280',
+    marginTop: 2,
   },
   catalogLoading: {
-    paddingVertical: 20,
+    marginTop: 12,
+    padding: 10,
+    borderRadius: 8,
+    backgroundColor: '#eef2ff',
+    flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
   },
