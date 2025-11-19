@@ -10,6 +10,7 @@ from .geo import (
     save_calibration, load_calibration, haversine_m, get_client_ip, PROVIDER, log_attempt
 )
 from . import database as db
+from .pretrained_classrooms import list_classrooms, get_classroom
 
 # Load model metadata (if present) for /verify demo
 META_PATH = Path("/app/artifacts/model/metadata.json")
@@ -56,6 +57,7 @@ class ClassCreate(BaseModel):
     lon: float
     epsilon_m: float
     secret_word: str
+    classroom_id: Optional[str] = None
     room_photos: List[str] = []  # base64 encoded images
     professor_id: str = "demo_prof"
     professor_name: str = "Demo Professor"
@@ -76,6 +78,11 @@ class ManualOverrideRequest(BaseModel):
     class_code: str
     student_id: str
     secret_word: str
+
+@app.get("/professor/classrooms")
+def get_classroom_catalog():
+    """Expose available pre-trained classroom templates to clients."""
+    return {"classrooms": list_classrooms(include_photos=False)}
 
 @app.get("/healthz")
 def healthz():
@@ -172,7 +179,19 @@ def verify(inp: VerifyIn):
 def create_class(class_data: ClassCreate):
     """Professor creates a new class with location and room photos."""
     try:
-        new_class = db.create_class(class_data.dict())
+        payload = class_data.dict()
+        template_id = payload.get("classroom_id")
+        if template_id:
+            template = get_classroom(template_id)
+            if not template:
+                return {"ok": False, "reason": "classroom_not_found"}
+            payload["room_photos"] = template.get("photos", [])
+            payload["classroom_label"] = template.get("name")
+        elif not payload.get("room_photos"):
+            # Legacy path for manual upload is gone, but keep guard in case client is outdated.
+            return {"ok": False, "reason": "room_photos_required"}
+
+        new_class = db.create_class(payload)
         return {"ok": True, "class": new_class}
     except Exception as e:
         return {"ok": False, "reason": str(e)}

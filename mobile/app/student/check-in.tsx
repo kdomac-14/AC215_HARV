@@ -88,12 +88,15 @@ export default function CheckInScreen() {
       setCapturedPhoto(photo.base64);
 
       // Get current location
-      let lat, lon, accuracy;
+      let lat: number | undefined;
+      let lon: number | undefined;
+      let accuracy: number | undefined;
       if (locationPermission) {
         const location = await Location.getCurrentPositionAsync({});
-        lat = location.coords.latitude;
-        lon = location.coords.longitude;
-        accuracy = location.coords.accuracy;
+        const { latitude, longitude, accuracy: accuracyValue } = location.coords;
+        lat = latitude;
+        lon = longitude;
+        accuracy = typeof accuracyValue === 'number' ? accuracyValue : undefined;
       }
 
       // Send check-in request
