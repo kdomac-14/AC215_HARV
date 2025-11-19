@@ -1,7 +1,24 @@
 import axios from 'axios';
+import Constants from 'expo-constants';
 
-// Update this to match your backend URL
-const API_URL = process.env.API_URL || 'http://localhost:8000';
+const manifestExtra =
+  Constants.expoConfig?.extra ??
+  // @ts-expect-error manifestExtra is only available at runtime
+  Constants.manifestExtra ??
+  {};
+const envApiUrl =
+  (typeof manifestExtra.apiUrl === 'string' && manifestExtra.apiUrl.length > 0
+    ? manifestExtra.apiUrl
+    : undefined) ||
+  process.env.EXPO_PUBLIC_API_URL ||
+  process.env.API_URL;
+const API_URL = envApiUrl || 'http://localhost:8000';
+
+if (!envApiUrl) {
+  console.warn(
+    '[api] Falling back to default API_URL (http://localhost:8000). Set API_URL in mobile/.env or EXPO_PUBLIC_API_URL.',
+  );
+}
 
 export interface ClassProfile {
   id: string;

@@ -88,7 +88,7 @@ export default function CreateClassScreen() {
       }
 
       const result = await ImagePicker.launchCameraAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        mediaTypes: ['images'],
         allowsEditing: true,
         aspect: [4, 3],
         quality: 0.7,
@@ -105,7 +105,9 @@ export default function CreateClassScreen() {
         setRoomPhotos(newPhotos);
       }
     } catch (error) {
-      Alert.alert('Error', 'Failed to take photo');
+      console.error('Failed to take photo', error);
+      const message = error instanceof Error ? error.message : undefined;
+      Alert.alert('Error', message ? `Failed to take photo: ${message}` : 'Failed to take photo');
     }
   };
 

@@ -19,6 +19,10 @@ export default function ClassListScreen() {
       setClasses(data);
     } catch (error) {
       console.error('Failed to load classes:', error);
+      Alert.alert(
+        'Network Error',
+        'Unable to contact the HARV backend. Ensure API_URL in mobile/.env points to a reachable server and that it is running.',
+      );
     }
   };
 
