@@ -50,6 +50,8 @@ def create_class(class_data: Dict) -> Dict:
         "epsilon_m": class_data["epsilon_m"],
         "secret_word": class_data["secret_word"],
         "room_photos": class_data.get("room_photos", []),
+        "classroom_id": class_data.get("classroom_id"),
+        "classroom_label": class_data.get("classroom_label"),
         "professor_id": class_data.get("professor_id", "unknown"),
         "professor_name": class_data.get("professor_name", "Unknown"),
         "created_at": datetime.now().isoformat(),

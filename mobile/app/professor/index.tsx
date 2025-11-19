@@ -57,6 +57,9 @@ export default function ProfessorScreen() {
                 <Text style={styles.infoText}>
                   📍 Location: {cls.lat.toFixed(4)}, {cls.lon.toFixed(4)}
                 </Text>
+                {cls.classroom_label && (
+                  <Text style={styles.infoText}>🏫 Classroom: {cls.classroom_label}</Text>
+                )}
                 <Text style={styles.infoText}>
                   📏 Radius: {cls.epsilon_m}m
                 </Text>

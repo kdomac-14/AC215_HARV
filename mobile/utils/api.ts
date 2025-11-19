@@ -3,7 +3,7 @@ import Constants from 'expo-constants';
 
 const manifestExtra =
   Constants.expoConfig?.extra ??
-  // @ts-expect-error manifestExtra is only available at runtime
+  // @ts-ignore manifestExtra is only available at runtime
   Constants.manifestExtra ??
   {};
 const envApiUrl =
@@ -29,7 +29,31 @@ export interface ClassProfile {
   epsilon_m: number;
   secret_word: string;
   room_photos: string[]; // base64 encoded images
+  classroom_id?: string | null;
+  classroom_label?: string | null;
   created_at: string;
+}
+
+export interface ClassroomTemplate {
+  id: string;
+  name: string;
+  building?: string;
+  description?: string;
+  photo_count: number;
+  preview_photo?: string | null;
+}
+
+export interface CreateClassRequest {
+  name: string;
+  code: string;
+  lat: number;
+  lon: number;
+  epsilon_m: number;
+  secret_word: string;
+  classroom_id?: string;
+  room_photos?: string[];
+  professor_id?: string;
+  professor_name?: string;
 }
 
 export interface CheckInRequest {
@@ -64,9 +88,14 @@ const api = {
   },
 
   // Professor endpoints
-  createClass: async (classData: Omit<ClassProfile, 'id' | 'created_at'>) => {
+  createClass: async (classData: CreateClassRequest) => {
     const response = await axios.post(`${API_URL}/professor/classes`, classData);
     return response.data;
+  },
+
+  getClassroomCatalog: async (): Promise<ClassroomTemplate[]> => {
+    const response = await axios.get(`${API_URL}/professor/classrooms`);
+    return response.data.classrooms;
   },
 
   getClassesByProfessor: async (professorId: string) => {

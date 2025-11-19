@@ -12,17 +12,7 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import * as Location from 'expo-location';
-import * as ImagePicker from 'expo-image-picker';
-import api from '../../utils/api';
-
-type PhotoLocation = 'front_left' | 'front_right' | 'back_left' | 'back_right' | 'center';
-
-interface RoomPhoto {
-  location: PhotoLocation;
-  label: string;
-  uri: string | null;
-  base64: string | null;
-}
+import api, { ClassroomTemplate } from '../../utils/api';
 
 export default function CreateClassScreen() {
   const router = useRouter();
@@ -32,18 +22,15 @@ export default function CreateClassScreen() {
   const [epsilon, setEpsilon] = useState('60');
   const [secretWord, setSecretWord] = useState('');
   const [location, setLocation] = useState<{ lat: number; lon: number } | null>(null);
-  const [roomPhotos, setRoomPhotos] = useState<RoomPhoto[]>([
-    { location: 'front_left', label: 'Front Left Corner', uri: null, base64: null },
-    { location: 'front_right', label: 'Front Right Corner', uri: null, base64: null },
-    { location: 'back_left', label: 'Back Left Corner', uri: null, base64: null },
-    { location: 'back_right', label: 'Back Right Corner', uri: null, base64: null },
-    { location: 'center', label: 'Center (Facing Screen)', uri: null, base64: null },
-  ]);
+  const [classrooms, setClassrooms] = useState<ClassroomTemplate[]>([]);
+  const [catalogLoading, setCatalogLoading] = useState(true);
+  const [selectedClassroomId, setSelectedClassroomId] = useState<string | null>(null);
 
   useEffect(() => {
     generateClassCode();
     generateSecretWord();
     getCurrentLocation();
+    loadClassroomCatalog();
   }, []);
 
   const generateClassCode = () => {
@@ -79,35 +66,19 @@ export default function CreateClassScreen() {
     }
   };
 
-  const takePhoto = async (index: number) => {
+  const loadClassroomCatalog = async () => {
     try {
-      const { status } = await ImagePicker.requestCameraPermissionsAsync();
-      if (status !== 'granted') {
-        Alert.alert('Permission Denied', 'Camera permission is required.');
-        return;
-      }
-
-      const result = await ImagePicker.launchCameraAsync({
-        mediaTypes: ['images'],
-        allowsEditing: true,
-        aspect: [4, 3],
-        quality: 0.7,
-        base64: true,
-      });
-
-      if (!result.canceled && result.assets[0]) {
-        const newPhotos = [...roomPhotos];
-        newPhotos[index] = {
-          ...newPhotos[index],
-          uri: result.assets[0].uri,
-          base64: result.assets[0].base64 || null,
-        };
-        setRoomPhotos(newPhotos);
+      setCatalogLoading(true);
+      const data = await api.getClassroomCatalog();
+      setClassrooms(data);
+      if (data.length > 0) {
+        setSelectedClassroomId(data[0].id);
       }
     } catch (error) {
-      console.error('Failed to take photo', error);
-      const message = error instanceof Error ? error.message : undefined;
-      Alert.alert('Error', message ? `Failed to take photo: ${message}` : 'Failed to take photo');
+      console.error('Failed to load classrooms', error);
+      Alert.alert('Error', 'Unable to load classroom catalog. Please try again.');
+    } finally {
+      setCatalogLoading(false);
     }
   };
 
@@ -122,14 +93,9 @@ export default function CreateClassScreen() {
       return;
     }
 
-    const missingPhotos = roomPhotos.filter((p) => !p.base64);
-    if (missingPhotos.length > 0) {
-      Alert.alert(
-        'Missing Photos',
-        `Please take photos from all 5 locations. Missing: ${missingPhotos
-          .map((p) => p.label)
-          .join(', ')}`,
-      );
+    const selectedClassroom = classrooms.find((room) => room.id === selectedClassroomId);
+    if (!selectedClassroom) {
+      Alert.alert('Error', 'Please select a classroom template');
       return;
     }
 
@@ -143,11 +109,11 @@ export default function CreateClassScreen() {
         lon: location.lon,
         epsilon_m: parseFloat(epsilon),
         secret_word: secretWord,
-        room_photos: roomPhotos.map((p) => p.base64!),
+        classroom_id: selectedClassroom.id,
       };
 
       await api.createClass(classData);
-      
+
       Alert.alert('Success', 'Class created successfully!', [
         {
           text: 'OK',
@@ -162,7 +128,7 @@ export default function CreateClassScreen() {
   };
 
   return (
-    <ScrollView style={styles.container}>
+    <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 40 }}>
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Class Information</Text>
         
@@ -232,36 +198,52 @@ export default function CreateClassScreen() {
       </View>
 
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Room Photos</Text>
+        <Text style={styles.sectionTitle}>Select Classroom</Text>
         <Text style={styles.helperText}>
-          Take photos from each corner and the center of the room for verification
+          Choose from pre-trained classrooms. Each option includes high-quality reference photos.
         </Text>
 
-        {roomPhotos.map((photo, index) => (
-          <View key={photo.location} style={styles.photoItem}>
-            <View style={styles.photoHeader}>
-              <Text style={styles.photoLabel}>{photo.label}</Text>
-              {photo.uri && <Text style={styles.photoCheck}>✓</Text>}
-            </View>
-            
-            {photo.uri ? (
-              <Image source={{ uri: photo.uri }} style={styles.photoPreview} />
-            ) : (
-              <View style={styles.photoPlaceholder}>
-                <Text style={styles.photoPlaceholderText}>📷 No photo taken</Text>
-              </View>
-            )}
-
-            <TouchableOpacity
-              style={styles.photoButton}
-              onPress={() => takePhoto(index)}
-            >
-              <Text style={styles.photoButtonText}>
-                {photo.uri ? 'Retake Photo' : 'Take Photo'}
-              </Text>
-            </TouchableOpacity>
+        {catalogLoading ? (
+          <View style={styles.catalogLoading}>
+            <ActivityIndicator />
+            <Text style={styles.helperText}>Loading classroom catalog…</Text>
           </View>
-        ))}
+        ) : classrooms.length === 0 ? (
+          <View style={styles.catalogLoading}>
+            <Text style={styles.helperText}>No classroom templates available.</Text>
+          </View>
+        ) : (
+          classrooms.map((room) => {
+            const isSelected = selectedClassroomId === room.id;
+            return (
+              <TouchableOpacity
+                key={room.id}
+                style={[styles.classroomCard, isSelected && styles.classroomCardSelected]}
+                onPress={() => setSelectedClassroomId(room.id)}
+              >
+                <View style={styles.classroomHeader}>
+                  <View>
+                    <Text style={styles.classroomName}>{room.name}</Text>
+                    {room.building && (
+                      <Text style={styles.classroomMeta}>📍 {room.building}</Text>
+                    )}
+                  </View>
+                  {isSelected && <Text style={styles.classroomSelected}>Selected</Text>}
+                </View>
+                {room.preview_photo && (
+                  <Image
+                    source={{ uri: `data:image/png;base64,${room.preview_photo}` }}
+                    style={styles.classroomPreview}
+                  />
+                )}
+                {room.description && (
+                  <Text style={styles.classroomDescription}>{room.description}</Text>
+                )}
+                <Text style={styles.classroomMeta}>📸 {room.photo_count} reference photos</Text>
+              </TouchableOpacity>
+            );
+          })
+        )}
       </View>
 
       <TouchableOpacity
@@ -275,8 +257,6 @@ export default function CreateClassScreen() {
           <Text style={styles.submitButtonText}>Create Class</Text>
         )}
       </TouchableOpacity>
-
-      <View style={{ height: 40 }} />
     </ScrollView>
   );
 }
@@ -358,56 +338,55 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
   },
-  photoItem: {
-    marginBottom: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
-    paddingBottom: 15,
+  classroomCard: {
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+    borderRadius: 12,
+    padding: 15,
+    marginTop: 15,
+    backgroundColor: '#fafafa',
   },
-  photoHeader: {
+  classroomCardSelected: {
+    borderColor: '#A51C30',
+    backgroundColor: '#fff0f3',
+  },
+  classroomHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     marginBottom: 10,
   },
-  photoLabel: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
+  classroomName: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#222',
   },
-  photoCheck: {
-    fontSize: 20,
-    color: '#4CAF50',
+  classroomMeta: {
+    fontSize: 13,
+    color: '#666',
+    marginTop: 2,
   },
-  photoPreview: {
+  classroomSelected: {
+    fontSize: 12,
+    color: '#A51C30',
+    fontWeight: '700',
+  },
+  classroomPreview: {
     width: '100%',
-    height: 200,
+    height: 150,
     borderRadius: 8,
     marginBottom: 10,
+    marginTop: 10,
   },
-  photoPlaceholder: {
-    width: '100%',
-    height: 200,
-    backgroundColor: '#f0f0f0',
-    borderRadius: 8,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 10,
-  },
-  photoPlaceholderText: {
-    fontSize: 16,
-    color: '#999',
-  },
-  photoButton: {
-    backgroundColor: '#A51C30',
-    padding: 12,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  photoButtonText: {
-    color: '#fff',
+  classroomDescription: {
     fontSize: 14,
-    fontWeight: '600',
+    color: '#444',
+    marginBottom: 6,
+  },
+  catalogLoading: {
+    paddingVertical: 20,
+    alignItems: 'center',
+    gap: 8,
   },
   submitButton: {
     backgroundColor: '#4CAF50',
