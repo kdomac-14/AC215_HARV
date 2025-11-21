@@ -58,8 +58,13 @@ export default function ProfessorScreen() {
               key={cls.id}
               style={styles.classCard}
               onPress={() => {
-                // Navigate to class details
-                Alert.alert('Class Details', `View details for ${cls.name}`);
+                router.push({
+                  pathname: '/professor/class-details',
+                  params: {
+                    classCode: cls.code,
+                    className: cls.name,
+                  },
+                });
               }}
             >
               <Text style={styles.className}>{cls.name}</Text>

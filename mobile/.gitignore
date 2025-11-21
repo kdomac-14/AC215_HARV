@@ -19,3 +19,6 @@ web-build/
 # Environment
 .env
 .env.local
+
+# Location configuration (contains preset coordinates)
+config/locations.ts

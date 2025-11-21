@@ -10,11 +10,11 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import * as Location from 'expo-location';
 import axios from 'axios';
 import api, { ClassroomTemplate } from '../../utils/api';
 import FALLBACK_CLASSROOMS from '../../data/classroomCatalog';
 import { PROFESSOR_ID, PROFESSOR_NAME } from '../../utils/constants';
+import { PRESET_LOCATIONS, getLocationByClassroom } from '../../config/locations';
 
 export default function CreateClassScreen() {
   const router = useRouter();
@@ -23,7 +23,7 @@ export default function CreateClassScreen() {
   const [classCode, setClassCode] = useState('');
   const [epsilon, setEpsilon] = useState('60');
   const [secretWord, setSecretWord] = useState('');
-  const [location, setLocation] = useState<{ lat: number; lon: number } | null>(null);
+  const [selectedLocation, setSelectedLocation] = useState<{ lat: number; lon: number } | null>(null);
   const [classrooms, setClassrooms] = useState<ClassroomTemplate[]>([]);
   const [catalogLoading, setCatalogLoading] = useState(true);
   const [selectedClassroomId, setSelectedClassroomId] = useState<string | null>(null);
@@ -36,7 +36,6 @@ export default function CreateClassScreen() {
   useEffect(() => {
     generateClassCode();
     generateSecretWord();
-    getCurrentLocation();
     applyCatalog(FALLBACK_CLASSROOMS);
     loadClassroomCatalog();
   }, []);
@@ -53,26 +52,24 @@ export default function CreateClassScreen() {
     setSecretWord(`${randomWord}${randomNum}`);
   };
 
-  const getCurrentLocation = async () => {
-    try {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') {
-        Alert.alert('Permission Denied', 'Location permission is required to create a class.');
-        return;
+  // Update selected location when classroom selection changes
+  useEffect(() => {
+    if (selectedClassroom) {
+      const presetLoc = getLocationByClassroom(selectedClassroom.name);
+      if (presetLoc) {
+        setSelectedLocation({
+          lat: presetLoc.latitude,
+          lon: presetLoc.longitude,
+        });
+      } else {
+        // Default fallback location (Harvard Yard)
+        setSelectedLocation({
+          lat: 42.3744,
+          lon: -71.1169,
+        });
       }
-
-      setLoading(true);
-      const loc = await Location.getCurrentPositionAsync({});
-      setLocation({
-        lat: loc.coords.latitude,
-        lon: loc.coords.longitude,
-      });
-      setLoading(false);
-    } catch (error) {
-      setLoading(false);
-      Alert.alert('Error', 'Failed to get current location');
     }
-  };
+  }, [selectedClassroom]);
 
   const applyCatalog = (catalog: ClassroomTemplate[]) => {
     setClassrooms(catalog);
@@ -117,8 +114,8 @@ export default function CreateClassScreen() {
       return;
     }
 
-    if (!location) {
-      Alert.alert('Error', 'Location is required. Please enable location services.');
+    if (!selectedLocation) {
+      Alert.alert('Error', 'Please select a classroom template to set the location.');
       return;
     }
 
@@ -133,8 +130,8 @@ export default function CreateClassScreen() {
       const classData = {
         name: className,
         code: classCode,
-        lat: location.lat,
-        lon: location.lon,
+        lat: selectedLocation.lat,
+        lon: selectedLocation.lon,
         epsilon_m: parseFloat(epsilon),
         secret_word: secretWord,
         classroom_id: selectedClassroom.id,
@@ -201,17 +198,17 @@ export default function CreateClassScreen() {
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Location Settings</Text>
         
-        {location ? (
+        {selectedLocation && (
           <View style={styles.locationInfo}>
-            <Text style={styles.locationText}>📍 Latitude: {location.lat.toFixed(6)}</Text>
-            <Text style={styles.locationText}>📍 Longitude: {location.lon.toFixed(6)}</Text>
-          </View>
-        ) : (
-          <TouchableOpacity style={styles.locationButton} onPress={getCurrentLocation}>
-            <Text style={styles.locationButtonText}>
-              {loading ? 'Getting Location...' : 'Get Current Location'}
+            <Text style={styles.locationText}>
+              📍 Location will be set based on classroom selection
             </Text>
-          </TouchableOpacity>
+            {selectedClassroom && (
+              <Text style={styles.locationSubtext}>
+                {selectedClassroom.building || selectedClassroom.name}
+              </Text>
+            )}
+          </View>
         )}
 
         <Text style={styles.label}>Acceptable Distance (meters)</Text>
@@ -366,17 +363,10 @@ const styles = StyleSheet.create({
     color: '#333',
     marginBottom: 4,
   },
-  locationButton: {
-    backgroundColor: '#0066CC',
-    padding: 15,
-    borderRadius: 8,
-    alignItems: 'center',
-    marginBottom: 10,
-  },
-  locationButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
+  locationSubtext: {
+    fontSize: 14,
+    color: '#666',
+    fontStyle: 'italic',
   },
   dropdownContainer: {
     marginTop: 12,

@@ -113,6 +113,16 @@ const api = {
     return response.data;
   },
 
+  getStudentsByClass: async (classCode: string) => {
+    const response = await axios.get(`${API_URL}/professor/classes/${classCode}/students`);
+    return response.data;
+  },
+
+  getStudentAttendance: async (studentId: string, classCode: string) => {
+    const response = await axios.get(`${API_URL}/professor/attendance/${studentId}/${classCode}`);
+    return response.data;
+  },
+
   calibrateLocation: async (lat: number, lon: number, epsilon_m: number) => {
     const response = await axios.post(`${API_URL}/geo/calibrate`, {
       lat,
@@ -130,6 +140,14 @@ const api = {
 
   enrollInClass: async (classCode: string, studentId: string) => {
     const response = await axios.post(`${API_URL}/student/enroll`, {
+      class_code: classCode,
+      student_id: studentId,
+    });
+    return response.data;
+  },
+
+  unenrollFromClass: async (classCode: string, studentId: string) => {
+    const response = await axios.post(`${API_URL}/student/unenroll`, {
       class_code: classCode,
       student_id: studentId,
     });

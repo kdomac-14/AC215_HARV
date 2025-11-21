@@ -145,6 +145,7 @@ HARV (Harvard Attendance Recognition and Verification) is a containerized ML pip
 ### Cloud Deployment (GCP)
 - **Cloud Run**: Serve API deployment
 - **Cloud Storage (GCS)**: Artifact storage (models, data)
+- **Firestore**: Persistent storage for professors, students, classes, enrollments, and check-ins
 - **Service Account**: Secure credential management
 - **Configuration**:
   - Project: `ac215-475022`
