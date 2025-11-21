@@ -40,7 +40,17 @@ pytest tests/e2e/ -v -m e2e --tb=short || true
 # Generate coverage report
 echo ""
 echo "7. Generating coverage report..."
-pytest tests/ --cov-report=html:evidence/coverage/html --cov-report=xml:evidence/coverage/coverage.xml --cov-report=term-missing || true
+pytest tests/ \
+    --cov=serve/src \
+    --cov=ingestion/src \
+    --cov=preprocess/src \
+    --cov=train/src \
+    --cov=evaluate/src \
+    --cov=export/src \
+    --cov-report=html:evidence/coverage/html \
+    --cov-report=xml:evidence/coverage/coverage.xml \
+    --cov-report=term-missing \
+    --cov-fail-under=50 || true
 
 echo ""
 echo "=========================================="

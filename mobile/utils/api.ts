@@ -6,15 +6,25 @@ const manifestExtra =
   // @ts-ignore manifestExtra is only available at runtime
   Constants.manifestExtra ??
   {};
-const envApiUrl =
+
+const normalizeBaseUrl = (url?: string) => {
+  if (!url) {
+    return undefined;
+  }
+  // Avoid double-slashes that FastAPI treats as a different route (404).
+  return url.replace(/\/+$/, '');
+};
+
+const resolvedApiUrl =
   (typeof manifestExtra.apiUrl === 'string' && manifestExtra.apiUrl.length > 0
     ? manifestExtra.apiUrl
     : undefined) ||
   process.env.EXPO_PUBLIC_API_URL ||
   process.env.API_URL;
-const API_URL = envApiUrl || 'http://localhost:8000';
 
-if (!envApiUrl) {
+const API_URL = normalizeBaseUrl(resolvedApiUrl) || 'http://localhost:8000';
+
+if (!resolvedApiUrl) {
   console.warn(
     '[api] Falling back to default API_URL (http://localhost:8000). Set API_URL in mobile/.env or EXPO_PUBLIC_API_URL.',
   );
@@ -103,6 +113,16 @@ const api = {
     return response.data;
   },
 
+  getStudentsByClass: async (classCode: string) => {
+    const response = await axios.get(`${API_URL}/professor/classes/${classCode}/students`);
+    return response.data;
+  },
+
+  getStudentAttendance: async (studentId: string, classCode: string) => {
+    const response = await axios.get(`${API_URL}/professor/attendance/${studentId}/${classCode}`);
+    return response.data;
+  },
+
   calibrateLocation: async (lat: number, lon: number, epsilon_m: number) => {
     const response = await axios.post(`${API_URL}/geo/calibrate`, {
       lat,
@@ -120,6 +140,14 @@ const api = {
 
   enrollInClass: async (classCode: string, studentId: string) => {
     const response = await axios.post(`${API_URL}/student/enroll`, {
+      class_code: classCode,
+      student_id: studentId,
+    });
+    return response.data;
+  },
+
+  unenrollFromClass: async (classCode: string, studentId: string) => {
+    const response = await axios.post(`${API_URL}/student/unenroll`, {
       class_code: classCode,
       student_id: studentId,
     });

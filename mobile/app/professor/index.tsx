@@ -1,28 +1,39 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert } from 'react-native';
-import { useRouter } from 'expo-router';
+import React, { useState, useCallback } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert, RefreshControl } from 'react-native';
+import { useRouter, useFocusEffect } from 'expo-router';
 import api from '../../utils/api';
+import { PROFESSOR_ID } from '../../utils/constants';
 
 export default function ProfessorScreen() {
   const router = useRouter();
   const [classes, setClasses] = useState([]);
-  const professorId = 'prof_demo'; // In production, get from auth
+  const [refreshing, setRefreshing] = useState(false);
+  const professorId = PROFESSOR_ID;
 
-  useEffect(() => {
-    loadClasses();
-  }, []);
-
-  const loadClasses = async () => {
+  const loadClasses = useCallback(async () => {
+    setRefreshing(true);
     try {
       const data = await api.getClassesByProfessor(professorId);
       setClasses(data);
     } catch (error) {
       console.error('Failed to load classes:', error);
+      Alert.alert('Error', 'Failed to load classes. Please try again.');
+    } finally {
+      setRefreshing(false);
     }
-  };
+  }, [professorId]);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadClasses();
+    }, [loadClasses]),
+  );
 
   return (
-    <ScrollView style={styles.container}>
+    <ScrollView
+      style={styles.container}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={loadClasses} />}
+    >
       <View style={styles.header}>
         <Text style={styles.title}>My Classes</Text>
         <TouchableOpacity
@@ -47,8 +58,13 @@ export default function ProfessorScreen() {
               key={cls.id}
               style={styles.classCard}
               onPress={() => {
-                // Navigate to class details
-                Alert.alert('Class Details', `View details for ${cls.name}`);
+                router.push({
+                  pathname: '/professor/class-details',
+                  params: {
+                    classCode: cls.code,
+                    className: cls.name,
+                  },
+                });
               }}
             >
               <Text style={styles.className}>{cls.name}</Text>

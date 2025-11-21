@@ -71,6 +71,11 @@ GEO_PROVIDER=google
 # For GCP deployment
 PROJECT_ID=ac215-475022
 GOOGLE_APPLICATION_CREDENTIALS=./service-account.json
+
+# For Firestore persistence
+DB_BACKEND=firestore
+FIRESTORE_PROJECT_ID=ac215-475022
+FIRESTORE_COLLECTION_PREFIX=harv
 ```
 
 ### Step 3: Verify Docker
@@ -507,6 +512,18 @@ make gcp-full-deploy
 # Expected output:
 # Service URL: https://harv-backend-xyz-uc.a.run.app
 ```
+
+#### Firestore setup
+
+1. From the GCP console enable the Firestore API for your project and create a **Native** Firestore database (recommended location: `us-central1` to match Cloud Run).
+2. Grant the service account used for deployments (see `service-account.json`) the `Cloud Datastore User` and `Datastore Owner` roles so it can read/write attendance data.
+3. Download the JSON key for that service account and keep it as `service-account.json` at the repo root (already gitignored).
+4. Set the following env vars (locally and in Cloud Run):
+   - `DB_BACKEND=firestore`
+   - `FIRESTORE_PROJECT_ID=<your-project>`
+   - `FIRESTORE_COLLECTION_PREFIX=harv` (or a custom namespace if you need multiple environments)
+   - `GOOGLE_APPLICATION_CREDENTIALS=/app/service-account.json` (or rely on Cloud Run's attached service account).
+5. When running via Docker Compose locally, mount the credential file into the `serve` container (e.g. `./service-account.json:/app/service-account.json:ro`) so Firestore can authenticate.
 
 See `DEPLOYMENT.md` for detailed deployment guide.
 

@@ -2,7 +2,7 @@ import os, base64, json, time, yaml
 from pathlib import Path
 import numpy as np
 import cv2, torch
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List, Optional
@@ -65,6 +65,12 @@ class ClassCreate(BaseModel):
 class EnrollmentCreate(BaseModel):
     class_code: str
     student_id: str
+
+
+class UnenrollRequest(BaseModel):
+    class_code: str
+    student_id: str
+
 
 class CheckInRequest(BaseModel):
     class_code: str
@@ -202,6 +208,52 @@ def get_professor_classes(professor_id: str):
     classes = db.get_classes_by_professor(professor_id)
     return classes
 
+
+@app.get("/professor/classes/{class_code}/students")
+def get_class_students(class_code: str):
+    """Return roster of students enrolled in a class with attendance stats."""
+    class_obj = db.get_class_by_code(class_code)
+    if not class_obj:
+        # Instead of erroring out, return empty roster so the UI can still render.
+        return []
+    return db.get_students_by_class(class_code)
+
+
+@app.get("/professor/attendance/{student_id}/{class_code}")
+def get_student_attendance(student_id: str, class_code: str):
+    """Return attendance history for a student inside a class."""
+    class_obj = db.get_class_by_code(class_code)
+    if not class_obj:
+        raise HTTPException(status_code=404, detail="class_not_found")
+
+    if not db.is_student_enrolled(class_code, student_id):
+        return {"records": [], "summary": {"total": 0, "present": 0, "late": 0, "absent": 0, "rate": 0}}
+
+    checkins = db.get_student_checkins(student_id, class_code)
+    records = []
+    for checkin in checkins:
+        status = "present" if checkin.get("success") else "absent"
+        if not checkin.get("success") and checkin.get("reason") == "recognition_failed":
+            status = "late"
+
+        records.append({
+            "date": checkin.get("timestamp"),
+            "status": status,
+            "check_in_time": checkin.get("timestamp") if checkin.get("success") else None,
+            "confidence": checkin.get("confidence"),
+            "distance_m": checkin.get("distance_m"),
+        })
+
+    summary = {
+        "total": len(records),
+        "present": sum(1 for r in records if r["status"] == "present"),
+        "late": sum(1 for r in records if r["status"] == "late"),
+        "absent": sum(1 for r in records if r["status"] == "absent"),
+    }
+    summary["rate"] = ((summary["present"] + summary["late"]) / summary["total"] * 100.0) if summary["total"] > 0 else 0
+
+    return {"records": records, "summary": summary}
+
 # ============================================================================
 # STUDENT ENDPOINTS
 # ============================================================================
@@ -226,6 +278,16 @@ def enroll_in_class(enrollment: EnrollmentCreate):
     
     result = db.enroll_student(enrollment.class_code, enrollment.student_id)
     return result
+
+
+@app.post("/student/unenroll")
+def unenroll_from_class(unenrollment: UnenrollRequest):
+    """Student unenrolls from a class."""
+    class_obj = db.get_class_by_code(unenrollment.class_code)
+    if not class_obj:
+        return {"ok": False, "reason": "class_not_found"}
+
+    return db.unenroll_student(unenrollment.class_code, unenrollment.student_id)
 
 @app.get("/student/classes/{student_id}")
 def get_student_classes(student_id: str):

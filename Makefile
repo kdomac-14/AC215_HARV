@@ -1,4 +1,6 @@
 SHELL := /bin/bash
+COV_TARGETS := serve/src ingestion/src preprocess/src train/src evaluate/src export/src
+PYTEST_COV := $(foreach target,$(COV_TARGETS),--cov=$(target))
 .PHONY: run down logs clean test test-unit test-integration test-e2e test-load verify coverage evidence help setup-faces fine-tune-blurry data preprocess train_cpu all
 
 run: ## Build and run full pipeline + API + dashboard
@@ -79,10 +81,18 @@ verify: ## Verify complete system (start services, run tests, generate evidence)
 	bash scripts/export_evidence.sh
 
 coverage: ## Run tests with coverage (terminal output)
-	pytest
+	pytest $(PYTEST_COV) \
+		--cov-report=term-missing \
+		--cov-report=xml:evidence/coverage/coverage.xml \
+		--cov-report=html:evidence/coverage/html \
+		--cov-fail-under=50
 
 coverage-html: ## Generate HTML coverage report and open in browser
-	pytest --cov-report=html
+	pytest $(PYTEST_COV) \
+		--cov-report=term-missing \
+		--cov-report=xml:evidence/coverage/coverage.xml \
+		--cov-report=html:evidence/coverage/html \
+		--cov-fail-under=50
 	@echo "Opening coverage report..."
 	@if command -v open &> /dev/null; then \
 		open evidence/coverage/html/index.html; \
