@@ -1,40 +1,58 @@
 # Data Versioning Strategy
 
-## Overview
-- **Tooling**: DVC orchestrates the ingestion → preprocess → train → evaluate → export stages defined in `dvc.yaml`.
-- **Storage**: By default the repo expects local folders (`data/interim`, `data/processed`, `artifacts/*`). Connect a remote (S3/GCS) by running `dvc remote add -d gcs gs://<bucket>` if desired.
-- **Model Artifacts**: Logged to `models/harv_cnn_v1` with metrics in `artifacts/metrics/`. Each version folder contains `metadata.json` + weights, making rollbacks trivial.
+HARV uses **DVC 3.x** for data lineage and experiment reproducibility. Every major pipeline stage lives in `dvc.yaml` so that `dvc repro` can rebuild artifacts from scratch using the same configs checked into Git.
 
-## Workflow
-1. **Pull existing data**
-   ```bash
-   dvc pull data/interim
-   dvc pull data/processed
-   ```
-2. **Update raw data**
-   - Drop new classroom captures into `data/raw/vision/<room>/<images>.jpg`.
-   - Commit large files with `dvc add data/raw/vision`.
-3. **Re-run pipeline**
-   ```bash
-   dvc repro train  # will trigger ingest + preprocess upstream if needed
-   ```
-4. **Register artifacts**
-   - Copy the exported model to `models/harv_cnn_v1` (or bump to v2/v3).
-   - Commit the updated `.dvc` files and `artifacts/metrics/*.json`.
+## Pipeline Stages (`dvc.yaml`)
 
-## Snapshot Alternative
-If DVC is unavailable, use the snapshot convention already checked in:
+| Stage | Command | Key Dependencies | Outputs / Artifact Location |
+| --- | --- | --- | --- |
+| `ingest` | `python -m ingestion.src.ingest` | Remote APIs / raw captures under `data/raw/` | `data/interim/` (structured parquet + manifests) |
+| `preprocess` | `python -m preprocess.src.preprocess` | `data/interim/`, `params.yaml` | `data/processed/` (vision-friendly folder split) |
+| `train` | `python -m train.src.train` | `data/processed/`, `params.yaml` | `artifacts/checkpoints/` (PyTorch checkpoints) |
+| `evaluate` | `python -m evaluate.src.evaluate` | `artifacts/checkpoints/`, `data/processed/` | `artifacts/metrics.json` (summary metrics) |
+| `export` | `python -m export.src.export` | `artifacts/checkpoints/` | `artifacts/model/` (serving bundle) |
+
+The **ml** folder consumes the same processed directories via `ml/train_cnn.py` and writes production-ready weights to `models/harv_cnn_v1/` plus metrics to `artifacts/metrics/harv_cnn_v1.json`. Those outputs are intentionally outside of `.dvc` so the FastAPI app can read them directly, while the upstream tensors remain tracked.
+
+## Collaborator Workflow
+
+1. **Clone & pull datasets**
+   ```bash
+   dvc pull data/interim data/processed artifacts/metrics artifacts/model
+   ```
+   Configure a remote only once with `dvc remote add -d harv-remote <gcs-or-s3-uri>`.
+2. **Modify data or parameters**
+   - Drop new captures under `data/raw/vision/<room>/<image>.jpg`.
+   - Update `params.yaml` or `ml/configs/harv_vision_v1.yaml` if hyperparameters change.
+   - Track new folders with `dvc add data/raw/vision`.
+3. **Reproduce the pipeline**
+   ```bash
+   dvc repro export      # runs ingest → preprocess → train → evaluate → export when needed
+   ```
+   For quick experiments, `dvc repro train` executes only the ML stages while keeping earlier outputs cached.
+4. **Record artifacts + metrics**
+   - Copy the latest checkpoint into `models/harv_cnn_v1/` (or bump to `harv_cnn_v2/`).
+   - Commit updated `.dvc` files plus `artifacts/metrics/harv_cnn_v1.json`.
+   - Reference results in `docs/model_training_summary.md`.
+
+### Snapshot fallback
+If DVC is not available (e.g., air-gapped grading), the repo still contains a lightweight snapshot:
 ```
 data/
-  raw/
-  interim/
-  processed/
+  interim/      # sample parquet + embeddings
+  processed/    # demo-friendly train/val folders
 models/
-  harv_cnn_v1/
-  harv_cnn_v2/   # create when hyperparameters change
+  harv_cnn_v1/  # metadata + weights consumed by the API
 ```
-Document each snapshot in `docs/model_results.md` and tag Git commits (e.g., `git tag data-v1`).
+Document manual edits in Git commits and keep directories immutable between submissions to preserve provenance.
 
-## Generated/Synthetic Data
-- Synthetic prompts or data augmentations belong in `data/generated/` with a JSONL file capturing prompt + response + timestamp.
-- Update this doc whenever a new augmentation source is introduced so graders know how to reproduce the dataset.
+## Reproducibility Notes
+
+- **Parameters** live in `params.yaml` (classic pipeline) and `ml/configs/harv_vision_v1.yaml` (MobileNet fine-tune). Both are plain text for easy diffs.
+- **Randomness** is seeded (`seed` parameter + `set_seed`) so repeated `dvc repro` runs match metrics ± floating point drift.
+- **Environments** are captured via `pyproject.toml` and `requirements-*.txt`; `pip install ".[dev]"` restores backend + ML dependencies in CI.
+- **Large file handling**: anything under `data/` or `artifacts/` is added to DVC so Git stays lightweight. Use `dvc push` after local experimentation.
+
+## Generated / LLM-Augmented Data
+
+HARV currently relies on camera captures and synthetic tensors generated by `ml/train_cnn.py`. If future phases introduce LLM prompts (e.g., for annotation), store prompts under `data/llm_prompts/` and generated assets under `data/llm_outputs/` with metadata JSON files (prompt, timestamp, author). Reference those files inside this document so reviewers can trace provenance end-to-end.

@@ -18,9 +18,11 @@ def create_app() -> FastAPI:
     def health() -> dict:
         """Simple service health endpoint."""
         return {
-            "status": "ok",
+            "ok": True,
             "app": settings.app_name,
-            "lecture_hall_bounds": settings.lecture_hall_bounds.dict(),
+            "version": settings.app_version,
+            "lecture_hall_bounds": settings.lecture_hall_bounds.model_dump(),
+            "demo_courses": [course["code"] for course in settings.default_courses],
         }
 
     app.include_router(checkin.router, prefix=f"{settings.api_prefix}")
