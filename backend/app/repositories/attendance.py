@@ -25,7 +25,10 @@ class AttendanceRepository:
             code = course["code"]
             current = existing_courses.get(code)
             if current:
-                if current.name != course["name"] or current.instructor_id != course["instructor_id"]:
+                if (
+                    current.name != course["name"]
+                    or current.instructor_id != course["instructor_id"]
+                ):
                     current.name = course["name"]
                     current.instructor_id = course["instructor_id"]
                     self.session.add(current)
