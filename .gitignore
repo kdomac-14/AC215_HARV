@@ -218,26 +218,27 @@ __marimo__/
 *.swo
 *~
 
-# MS2 ML Pipeline
-artifacts/
-data/raw/
-data/interim/
-data/processed/
-models/
+# Data + artifacts (tracked via DVC)
+/artifacts/**
+!/artifacts/metrics/
+!/artifacts/metrics/**
+data/
+/models/**
+!/models/harv_cnn_v1/
+!/models/harv_cnn_v1/**
 outputs/
-!outputs/.gitkeep
-!outputs/README.md
-!outputs/samples/
-outputs/samples/*
-!outputs/samples/README.md
-!outputs/samples/example_prediction.json
-!outputs/samples/example_metrics.json
 infra/logs/
 wandb/
 .dvc/
-.cache/
 
-# Testing and Evidence
+# Frontend / Expo caches
+frontend/node_modules/
+frontend/.expo/
+frontend/.expo-shared/
+
+# Backend database
+backend/harv.db
+
 evidence/
 !docs/evidence/
 *.tar.gz

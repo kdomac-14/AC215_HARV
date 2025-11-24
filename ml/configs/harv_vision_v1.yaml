@@ -1,0 +1,15 @@
+experiment_name: harv_vision_v1
+seed: 42
+train_dir: data/processed/vision/train
+val_dir: data/processed/vision/val
+image_size: 224
+batch_size: 16
+epochs: 5
+learning_rate: 0.0005
+weight_decay: 0.0001
+output_dir: models/harv_cnn_v1
+metrics_path: artifacts/metrics/harv_cnn_v1.json
+augmentations:
+  horizontal_flip: true
+  color_jitter: true
+  random_rotation_degrees: 8

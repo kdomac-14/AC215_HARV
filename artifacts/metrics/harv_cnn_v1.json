@@ -1,0 +1,9 @@
+{
+  "experiment_name": "harv_vision_v1",
+  "accuracy": 0.962,
+  "precision": 0.955,
+  "recall": 0.968,
+  "false_positive_rate": 0.01,
+  "latency_ms": 38.2,
+  "notes": "Synthetic data run for milestone documentation; retrain with campus imagery for production."
+}

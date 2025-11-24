@@ -1,31 +1,42 @@
 {
-  "name": "harv-frontend",
+  "name": "harv-mobile",
   "version": "1.0.0",
-  "private": true,
-  "type": "module",
+  "main": "expo-router/entry",
   "scripts": {
-    "dev": "vite",
-    "build": "tsc && vite build",
-    "preview": "vite preview",
-    "test:e2e": "playwright test",
-    "test:e2e:ui": "playwright test --ui"
+    "start": "ulimit -n 10240 && expo start",
+    "start:safe": "./start-expo.sh",
+    "android": "expo start --android",
+    "ios": "expo start --ios",
+    "web": "expo start --web",
+    "test": "jest",
+    "lint": "eslint app src --ext ts,tsx --max-warnings=0"
   },
   "dependencies": {
-    "axios": "^1.6.2",
-    "react": "^18.2.0",
-    "react-dom": "^18.2.0",
-    "react-router-dom": "^6.20.1",
-    "zustand": "^4.4.7"
+    "@react-navigation/native": "^6.1.9",
+    "axios": "^1.6.0",
+    "expo": "^54.0.0",
+    "expo-camera": "~17.0.9",
+    "expo-constants": "^18.0.10",
+    "expo-image-picker": "~17.0.8",
+    "expo-linking": "^8.0.9",
+    "expo-location": "~19.0.7",
+    "expo-router": "~6.0.15",
+    "expo-status-bar": "~3.0.8",
+    "react": "19.1.0",
+    "react-dom": "19.1.0",
+    "react-native": "0.81.5",
+    "react-native-safe-area-context": "~5.6.0",
+    "react-native-screens": "~4.16.0",
+    "zustand": "^4.4.0"
   },
   "devDependencies": {
-    "@playwright/test": "^1.40.1",
-    "@types/react": "^18.2.43",
-    "@types/react-dom": "^18.2.17",
-    "@vitejs/plugin-react": "^4.2.1",
-    "autoprefixer": "^10.4.16",
-    "postcss": "^8.4.32",
-    "tailwindcss": "^3.3.6",
-    "typescript": "^5.3.3",
-    "vite": "^5.0.8"
-  }
+    "@babel/core": "^7.20.0",
+    "@react-native/eslint-config": "^0.74.3",
+    "@types/react": "~19.2.6",
+    "babel-preset-expo": "~54.0.0",
+    "eslint": "^9.2.0",
+    "prettier": "^3.3.0",
+    "typescript": "~5.9.2"
+  },
+  "private": true
 }

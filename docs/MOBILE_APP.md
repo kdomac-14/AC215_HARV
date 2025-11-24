@@ -446,7 +446,7 @@ def test_student_checkin():
 
 ## Troubleshooting
 
-See `mobile/README.md` for common issues and solutions.
+See `frontend/README.md` for common issues and solutions.
 
 ## References
 

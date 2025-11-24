@@ -246,7 +246,7 @@ For production, replace JSON files with PostgreSQL:
 
 ## Documentation
 
-- **Mobile App README**: `mobile/README.md` - Detailed mobile app docs
+- **Mobile App README**: `frontend/README.md` - Detailed mobile app docs
 - **Mobile Features**: `docs/MOBILE_APP.md` - Architecture and API reference
 - **Main README**: `README.md` - Full HARV documentation
 - **Backend API**: `serve/src/app.py` - API endpoint definitions
@@ -254,7 +254,7 @@ For production, replace JSON files with PostgreSQL:
 ## Support
 
 For issues:
-1. Check `mobile/README.md` troubleshooting section
+1. Check `frontend/README.md` troubleshooting section
 2. Review logs: Shake device → "Show Developer Menu" → "Debug"
 3. Backend logs: `docker compose logs serve`
 4. Open GitHub issue with:

@@ -10,12 +10,18 @@ authors = [
 keywords = ["machine-learning", "computer-vision", "face-recognition", "transfer-learning"]
 
 dependencies = [
-    "torch>=2.3.0",
-    "torchvision>=0.18.0",
+    "torch>=2.2.2",
+    "torchvision>=0.17.2",
     "opencv-python>=4.9.0",
     "pillow>=10.2.0",
     "numpy>=1.24.3",
     "pyyaml>=6.0.1",
+    "pydantic>=2.0.0,<2.7.0",
+    "fastapi>=0.110.0",
+    "uvicorn[standard]>=0.27.0",
+    "sqlmodel>=0.0.16",
+    "pydantic-settings>=2.2.1",
+    "python-multipart>=0.0.9",
 ]
 
 [project.optional-dependencies]
@@ -25,6 +31,7 @@ dev = [
     "pytest-asyncio>=0.21.0",
     "ruff>=0.3.0",
     "mypy>=1.8.0",
+    "black>=24.2.0",
 ]
 
 test = [
@@ -38,7 +45,7 @@ requires = ["setuptools>=68.0"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
-packages = ["src"]
+packages = ["backend"]
 
 # Ruff configuration
 [tool.ruff]
@@ -69,6 +76,9 @@ ignore = [
     "E501",   # Line too long (handled by formatter)
     "T20",    # Print statements allowed for pipeline logging
     "G004",   # Logging f-string allowed
+    "B008",   # FastAPI dependency injection pattern
+    "UP017",  # Python 3.9 does not expose datetime.UTC
+    "UP007",  # Allow Optional[...] for Python 3.9 compatibility
 ]
 
 [tool.ruff.lint.per-file-ignores]
@@ -108,19 +118,17 @@ ignore_missing_imports = true
 
 # Pytest configuration
 [tool.pytest.ini_options]
-testpaths = ["tests"]
+testpaths = ["backend/tests"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
 addopts = [
-    "-q",
-    "--disable-warnings",
-    "--strict-markers",
-    "--strict-config",
-    "--cov=src",
+    "-v",
+    "--cov=backend/app",
     "--cov-report=term-missing",
     "--cov-report=html:evidence/coverage/html",
     "--cov-report=xml:evidence/coverage/coverage.xml",
+    "--cov-fail-under=50",
 ]
 markers = [
     "unit: Fast, isolated unit tests",

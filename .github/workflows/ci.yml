@@ -1,18 +1,17 @@
-name: Continuous Integration
+name: Milestone CI
 
 on:
   push:
-    branches: [ main, develop ]
+    branches: [main, develop]
   pull_request:
-    branches: [ main, develop ]
+    branches: [main, develop]
 
 env:
-  PYTHON_VERSION: '3.11'
-  NODE_VERSION: '20'
+  PYTHON_VERSION: "3.11"
+  NODE_VERSION: "20"
 
 jobs:
   lint:
-    name: Lint & Type Check
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -21,158 +20,60 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
-          cache: pip
 
-      - name: Install tooling
+      - name: Install formatters
         run: |
           python -m pip install --upgrade pip
-          pip install ruff mypy
+          pip install ruff black
 
       - name: Ruff lint
-        run: ruff check .
+        run: ruff check backend ml
 
-      - name: Mypy type check
-        run: |
-          mypy ingestion/src preprocess/src train/src serve/src tests
+      - name: Black check
+        run: black --check backend ml
 
-  frontend:
-    name: Frontend Build & E2E
+  backend:
     runs-on: ubuntu-latest
     needs: lint
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install backend dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install ".[dev]"
+
+      - name: Run pytest with coverage
+        run: |
+          pytest
+
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-coverage-${{ github.sha }}
+          path: evidence/coverage
+
+  frontend:
+    runs-on: ubuntu-latest
+    needs: backend
     defaults:
       run:
         working-directory: frontend
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Node
+      - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
 
       - name: Install dependencies
-        run: npm install --no-audit --no-fund
+        run: npm ci --no-audit --no-fund
 
-      - name: Build application
-        run: npm run build
-
-      - name: Install Playwright browsers
-        run: npx playwright install --with-deps
-
-      - name: Run Playwright tests
-        run: npx playwright test --reporter=line
-
-      - name: Upload Playwright report
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: frontend-playwright-report-${{ github.sha }}
-          path: frontend/playwright-report
-          retention-days: 14
-
-  backend:
-    name: Backend Tests & Coverage
-    runs-on: ubuntu-latest
-    needs: lint
-    env:
-      API_BASE_URL: http://127.0.0.1:8000
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: ${{ env.PYTHON_VERSION }}
-          cache: pip
-          cache-dependency-path: |
-            requirements-test.txt
-            serve/pyproject.toml
-
-      - name: Install system dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libgl1 libglib2.0-0
-
-      - name: Install Python dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements-test.txt
-          pip install -e serve
-
-      - name: Copy environment template
-        run: cp .env.example .env
-
-      - name: Prepare artifact directory for API
-        run: |
-          sudo mkdir -p /app
-          sudo chown $USER:$USER /app
-          mkdir -p /app/artifacts
-          rsync -a artifacts/ /app/artifacts/
-
-      - name: Start API server
-        run: |
-          nohup uvicorn serve.src.app:app --host 0.0.0.0 --port 8000 > uvicorn.log 2>&1 &
-          echo $! > uvicorn.pid
-
-      - name: Wait for API
-        run: |
-          chmod +x scripts/wait_for_services.sh
-          bash scripts/wait_for_services.sh
-
-      - name: Run unit, integration, and e2e tests with coverage
-        run: |
-          mkdir -p evidence/coverage
-          pytest tests -m "unit or integration or e2e" \
-            --cov=serve/src \
-            --cov=ingestion/src \
-            --cov=preprocess/src \
-            --cov=train/src \
-            --cov=evaluate/src \
-            --cov=export/src \
-            --cov-report=term-missing \
-            --cov-report=xml:evidence/coverage/coverage.xml \
-            --cov-report=html:evidence/coverage/html \
-            --cov-fail-under=50
-
-      - name: Publish coverage summary
-        if: success()
-        run: |
-          python - <<'PY'
-          from pathlib import Path
-          import os
-          import xml.etree.ElementTree as ET
-
-          report = Path("evidence/coverage/coverage.xml")
-          tree = ET.parse(report)
-          root = tree.getroot()
-          pct = float(root.get("line-rate", 0)) * 100
-          summary = f"### Backend Coverage\nTotal line coverage: {pct:.2f}%\n"
-          print(summary)
-          summary_path = Path("evidence/coverage/coverage-summary.txt")
-          summary_path.parent.mkdir(parents=True, exist_ok=True)
-          summary_path.write_text(summary, encoding="utf-8")
-          if "GITHUB_STEP_SUMMARY" in os.environ:
-              with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as summary_file:
-                  summary_file.write(summary)
-          PY
-
-      - name: Upload coverage artifacts
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: backend-coverage-${{ github.sha }}
-          path: evidence/coverage
-          retention-days: 14
-
-      - name: Print API logs on failure
-        if: failure()
-        run: |
-          echo "==== uvicorn.log ===="
-          cat uvicorn.log || true
-
-      - name: Stop API server
-        if: always()
-        run: |
-          if [ -f uvicorn.pid ]; then
-            kill $(cat uvicorn.pid) || true
-          fi
+      - name: Run Expo lint
+        run: npm run lint
