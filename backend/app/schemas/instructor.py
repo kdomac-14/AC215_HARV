@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Optional
 
 from pydantic import BaseModel, Field
 
@@ -26,18 +25,18 @@ class AttendanceEventResponse(BaseModel):
     timestamp: datetime
     verification_method: str
     status: str
-    confidence: Optional[float] = None
+    confidence: float | None = None
     requires_manual_review: bool
-    notes: Optional[str] = None
+    notes: str | None = None
 
 
 class AttendanceFilters(BaseModel):
     """Query parameters for event listing."""
 
-    verification_method: Optional[str] = Field(default=None)
-    status: Optional[str] = Field(default=None)
-    start: Optional[datetime] = None
-    end: Optional[datetime] = None
+    verification_method: str | None = Field(default=None)
+    status: str | None = Field(default=None)
+    start: datetime | None = None
+    end: datetime | None = None
 
 
 class OverrideRequest(BaseModel):

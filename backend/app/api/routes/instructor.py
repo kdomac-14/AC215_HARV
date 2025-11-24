@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlmodel import Session
@@ -29,10 +28,10 @@ def list_courses(
 @router.get("/attendance", response_model=list[AttendanceEventResponse])
 def list_attendance(
     course_id: int,
-    verification_method: Optional[str] = Query(default=None),
-    status: Optional[str] = Query(default=None),
-    start: Optional[datetime] = Query(default=None),
-    end: Optional[datetime] = Query(default=None),
+    verification_method: str | None = Query(default=None),
+    status: str | None = Query(default=None),
+    start: datetime | None = Query(default=None),
+    end: datetime | None = Query(default=None),
     session: Session = Depends(get_db_session),
 ) -> list[AttendanceEventResponse]:
     """Return attendance entries filtered by query params."""
