@@ -44,7 +44,12 @@ def test_ensure_seed_courses_upserts_missing_entries():
     repo = AttendanceRepository(session)
     seed = [
         {"id": 1, "code": "CS50", "name": "CS50 - Intro to CS", "instructor_id": "instructor-harv"},
-        {"id": 99, "code": "DEMO001", "name": "Demo Class for Student 001", "instructor_id": "instructor-harv"},
+        {
+            "id": 99,
+            "code": "DEMO001",
+            "name": "Demo Class for Student 001",
+            "instructor_id": "instructor-harv",
+        },
     ]
     repo.ensure_seed_courses(seed)
 

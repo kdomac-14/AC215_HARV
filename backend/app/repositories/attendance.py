@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 from datetime import datetime, timezone
-from typing import Optional
 
 from sqlmodel import Session, select
 
@@ -26,7 +25,10 @@ class AttendanceRepository:
             code = course["code"]
             current = existing_courses.get(code)
             if current:
-                if current.name != course["name"] or current.instructor_id != course["instructor_id"]:
+                if (
+                    current.name != course["name"]
+                    or current.instructor_id != course["instructor_id"]
+                ):
                     current.name = course["name"]
                     current.instructor_id = course["instructor_id"]
                     self.session.add(current)
@@ -47,12 +49,12 @@ class AttendanceRepository:
         instructor_id: str,
         verification_method: str,
         status: str,
-        latitude: Optional[float] = None,
-        longitude: Optional[float] = None,
+        latitude: float | None = None,
+        longitude: float | None = None,
         requires_manual_review: bool = False,
-        confidence: Optional[float] = None,
-        notes: Optional[str] = None,
-        timestamp: Optional[datetime] = None,
+        confidence: float | None = None,
+        notes: str | None = None,
+        timestamp: datetime | None = None,
     ) -> AttendanceEvent:
         """Persist a new attendance event."""
         event = AttendanceEvent(
@@ -82,10 +84,10 @@ class AttendanceRepository:
         self,
         *,
         course_id: int,
-        verification_method: Optional[str] = None,
-        status: Optional[str] = None,
-        start: Optional[datetime] = None,
-        end: Optional[datetime] = None,
+        verification_method: str | None = None,
+        status: str | None = None,
+        start: datetime | None = None,
+        end: datetime | None = None,
     ) -> list[AttendanceEvent]:
         """Retrieve attendance events for instructor dashboards."""
         statement = select(AttendanceEvent).where(AttendanceEvent.course_id == course_id)
