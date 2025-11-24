@@ -1,8 +1,17 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
+import React, { useCallback, useEffect, useState } from 'react';
+import {
+  ActivityIndicator,
+  Alert,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
 import api, { AttendanceEvent } from '../../utils/api';
 import StatusPill from '../../src/components/StatusPill';
+import { logError } from '../../utils/logger';
 
 export default function ClassDetailsScreen() {
   const { courseId, className } = useLocalSearchParams<{ courseId: string; className: string }>();
@@ -10,33 +19,41 @@ export default function ClassDetailsScreen() {
   const [loading, setLoading] = useState(true);
   const [selectedStatus, setSelectedStatus] = useState<'present' | 'absent'>('present');
 
-  const loadAttendance = async () => {
+  const loadAttendance = useCallback(async () => {
+    if (!courseId) {
+      return;
+    }
+
     setLoading(true);
     try {
       const records = await api.listAttendance(Number(courseId));
       setAttendance(records);
     } catch (error) {
-      console.error('[professor] failed to load attendance', error);
-      Alert.alert('Unable to fetch records', 'Is the backend API running at http://localhost:8000?');
+      logError('[professor] failed to load attendance', error);
+      Alert.alert(
+        'Unable to fetch records',
+        'Is the backend API running at http://localhost:8000?',
+      );
     } finally {
       setLoading(false);
     }
-  };
+  }, [courseId]);
 
   useEffect(() => {
     loadAttendance();
-  }, [courseId]);
+  }, [loadAttendance]);
 
   const handleOverride = async (eventId: number) => {
     try {
       const updated = await api.overrideAttendance(eventId, {
         status: selectedStatus,
-        notes: selectedStatus === 'present' ? 'Instructor override: verified' : 'Marked absent manually',
+        notes:
+          selectedStatus === 'present' ? 'Instructor override: verified' : 'Marked absent manually',
       });
       setAttendance((prev) => prev.map((event) => (event.id === updated.id ? updated : event)));
       Alert.alert('Override saved', `Event marked as ${selectedStatus.toUpperCase()}`);
     } catch (error) {
-      console.error('[professor] override failed', error);
+      logError('[professor] override failed', error);
       Alert.alert('Override failed', 'Double-check that the backend is running and try again.');
     }
   };
@@ -52,17 +69,11 @@ export default function ClassDetailsScreen() {
           {(['present', 'absent'] as const).map((option) => (
             <TouchableOpacity
               key={option}
-              style={[
-                styles.toggleButton,
-                selectedStatus === option && styles.toggleButtonActive,
-              ]}
+              style={[styles.toggleButton, selectedStatus === option && styles.toggleButtonActive]}
               onPress={() => setSelectedStatus(option)}
             >
               <Text
-                style={[
-                  styles.toggleText,
-                  selectedStatus === option && styles.toggleTextActive,
-                ]}
+                style={[styles.toggleText, selectedStatus === option && styles.toggleTextActive]}
               >
                 {option.toUpperCase()}
               </Text>
@@ -85,7 +96,11 @@ export default function ClassDetailsScreen() {
         </View>
       ) : (
         attendance.map((event) => (
-          <TouchableOpacity key={event.id} style={styles.eventCard} onPress={() => handleOverride(event.id)}>
+          <TouchableOpacity
+            key={event.id}
+            style={styles.eventCard}
+            onPress={() => handleOverride(event.id)}
+          >
             <View style={styles.eventHeader}>
               <Text style={styles.eventStudent}>{event.student_id}</Text>
               <StatusPill status={event.status} />
@@ -95,7 +110,9 @@ export default function ClassDetailsScreen() {
             </Text>
             {event.notes && <Text style={styles.eventNotes}>{event.notes}</Text>}
             {typeof event.confidence === 'number' && (
-              <Text style={styles.eventMeta}>Confidence: {(event.confidence * 100).toFixed(1)}%</Text>
+              <Text style={styles.eventMeta}>
+                Confidence: {(event.confidence * 100).toFixed(1)}%
+              </Text>
             )}
           </TouchableOpacity>
         ))

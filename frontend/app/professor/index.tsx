@@ -1,8 +1,17 @@
-import React, { useState, useCallback } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert, RefreshControl } from 'react-native';
+import React, { useCallback, useState } from 'react';
+import {
+  Alert,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import api, { CourseSummary } from '../../utils/api';
 import { PROFESSOR_ID } from '../../utils/constants';
+import { logError } from '../../utils/logger';
 
 export default function ProfessorScreen() {
   const router = useRouter();
@@ -16,7 +25,7 @@ export default function ProfessorScreen() {
       const data = await api.listCourses(professorId);
       setClasses(data);
     } catch (error) {
-      console.error('Failed to load classes:', error);
+      logError('Failed to load classes:', error);
       Alert.alert('Error', 'Failed to load classes. Please try again.');
     } finally {
       setRefreshing(false);

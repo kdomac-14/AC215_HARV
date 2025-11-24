@@ -15,11 +15,7 @@ export default function StatusPill({ status }: Props) {
   const lower = status.toLowerCase();
   const backgroundColor = palette[lower] ?? '#607D8B';
 
-  return (
-    <Text style={[styles.pill, { backgroundColor }]}>
-      {status.toUpperCase()}
-    </Text>
-  );
+  return <Text style={[styles.pill, { backgroundColor }]}>{status.toUpperCase()}</Text>;
 }
 
 const styles = StyleSheet.create({
