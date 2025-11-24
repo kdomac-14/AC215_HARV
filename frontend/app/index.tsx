@@ -9,7 +9,7 @@ export default function HomeScreen() {
   return (
     <View style={styles.container}>
       <StatusBar style="light" />
-      
+
       <View style={styles.header}>
         <Text style={styles.title}>HARV</Text>
         <Text style={styles.subtitle}>Harvard Attendance Recognition{'\n'}and Verification</Text>

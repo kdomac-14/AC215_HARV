@@ -13,6 +13,7 @@ import { useRouter, useFocusEffect } from 'expo-router';
 import api, { CourseSummary } from '../../utils/api';
 import { useStore } from '../../utils/store';
 import { DEFAULT_INSTRUCTORS } from '../../utils/constants';
+import { logError } from '../../utils/logger';
 
 export default function StudentScreen() {
   const router = useRouter();
@@ -41,7 +42,7 @@ export default function StudentScreen() {
       const flattened = responses.flat();
       setCourses(flattened);
     } catch (error) {
-      console.error('[student] failed to load courses', error);
+      logError('[student] failed to load courses', error);
       Alert.alert(
         'Unable to load courses',
         'Check that the backend API is running locally and API_URL points to it.',
@@ -135,7 +136,7 @@ export default function StudentScreen() {
                     params: {
                       courseId: String(course.id),
                       className: course.name,
-                      instructorId: course['instructor_id'],
+                      instructorId: course.instructor_id,
                       studentId: activeStudentId,
                     },
                   })

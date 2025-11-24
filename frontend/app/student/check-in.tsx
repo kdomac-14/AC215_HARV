@@ -14,6 +14,7 @@ import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as Location from 'expo-location';
 import api from '../../utils/api';
 import { PRESET_LOCATIONS } from '../../config/locations';
+import { logError } from '../../utils/logger';
 
 export default function CheckInScreen() {
   const router = useRouter();
@@ -86,8 +87,11 @@ export default function CheckInScreen() {
         );
       }
     } catch (error) {
-      console.error('[student] gps check failed', error);
-      Alert.alert('Check-in failed', 'Unable to reach the HARV backend. Is it running on port 8000?');
+      logError('[student] gps check failed', error);
+      Alert.alert(
+        'Check-in failed',
+        'Unable to reach the HARV backend. Is it running on port 8000?',
+      );
     } finally {
       setChecking(false);
     }
@@ -126,8 +130,11 @@ export default function CheckInScreen() {
         response.message,
       );
     } catch (error) {
-      console.error('[student] vision check failed', error);
-      Alert.alert('Vision check failed', 'Could not evaluate the capture. Try again or adjust lighting.');
+      logError('[student] vision check failed', error);
+      Alert.alert(
+        'Vision check failed',
+        'Could not evaluate the capture. Try again or adjust lighting.',
+      );
     } finally {
       setChecking(false);
     }
@@ -165,7 +172,11 @@ export default function CheckInScreen() {
         </View>
 
         <TouchableOpacity style={styles.primaryButton} onPress={runGpsCheck} disabled={checking}>
-          {checking ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>Send GPS Check</Text>}
+          {checking ? (
+            <ActivityIndicator color="#fff" />
+          ) : (
+            <Text style={styles.buttonText}>Send GPS Check</Text>
+          )}
         </TouchableOpacity>
 
         {gpsResult && (
@@ -191,7 +202,7 @@ export default function CheckInScreen() {
             </TouchableOpacity>
           )}
           <TouchableOpacity
-            style={[styles.primaryButton, { marginTop: 16 }]}
+            style={[styles.primaryButton, styles.visionButton]}
             onPress={submitVisionVerification}
             disabled={checking}
           >
@@ -284,6 +295,9 @@ const styles = StyleSheet.create({
     padding: 14,
     borderRadius: 10,
     alignItems: 'center',
+    marginTop: 16,
+  },
+  visionButton: {
     marginTop: 16,
   },
   buttonText: {

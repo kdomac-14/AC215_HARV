@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, ActivityIndicator } from 'react-native';
 import api, { CourseSummary } from '../../utils/api';
 import { DEFAULT_INSTRUCTORS } from '../../utils/constants';
+import { logError } from '../../utils/logger';
 
 export default function ClassListScreen() {
   const [courses, setCourses] = useState<CourseSummary[]>([]);
@@ -15,7 +16,7 @@ export default function ClassListScreen() {
         );
         setCourses(responses.flat());
       } catch (error) {
-        console.error('[class-list] failed to load courses', error);
+        logError('[class-list] failed to load courses', error);
       } finally {
         setLoading(false);
       }
