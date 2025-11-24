@@ -44,7 +44,7 @@ docs/                    Architecture, runbooks, CI evidence, etc.
 3. Copy `.env.example` → `.env` if you need to override defaults. SQLite database (`backend/harv.db`) is created automatically along with demo courses.
 
 ### Key Endpoints
-- `GET /health` – status + configured lecture hall bounds.
+- `GET /health` – returns `{ok, app, version, lecture_hall_bounds, demo_courses}` for smoke tests.
 - `POST /api/checkin/gps` – student_id, course_id, instructor_id, latitude, longitude.
 - `POST /api/checkin/vision` – fallback with `image_b64`.
 - `GET /api/instructor/courses?instructor_id=...`
@@ -124,4 +124,5 @@ Expo Router currently uses the ESLint config in `frontend/.eslintrc.js`. Node 20
 - [Data versioning strategy](docs/data_versioning.md)
 - [Model results](docs/model_results.md)
 - [Model training summary](docs/model_training_summary.md)
-- [Runbook / troubleshooting](docs/RUNBOOK.md`, `docs/MOBILE_APP.md`)
+- Runbook / troubleshooting: [docs/RUNBOOK.md](docs/RUNBOOK.md) and [docs/MOBILE_APP.md](docs/MOBILE_APP.md)
+- [Milestone 4 verification checklist](VERIFICATION.md)

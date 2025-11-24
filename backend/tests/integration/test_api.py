@@ -4,12 +4,17 @@ from __future__ import annotations
 
 from fastapi.testclient import TestClient
 
+from backend.app.config.settings import settings
+
 
 def test_health_endpoint(client: TestClient):
     response = client.get("/health")
     assert response.status_code == 200
     body = response.json()
-    assert body["status"] == "ok"
+    assert body["ok"] is True
+    assert body["app"] == settings.app_name
+    assert "version" in body
+    assert "lecture_hall_bounds" in body
 
 
 def test_gps_checkin(client: TestClient):

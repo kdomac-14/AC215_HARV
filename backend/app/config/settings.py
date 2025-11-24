@@ -59,6 +59,7 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_prefix="HARV_", extra="ignore")
 
     app_name: str = "HARV Attendance API"
+    app_version: str = "1.0.0"
     api_prefix: str = "/api"
     database_url: str = Field(
         default=f"sqlite:///{Path('backend') / 'harv.db'}", env="HARV_DATABASE_URL"
