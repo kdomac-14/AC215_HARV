@@ -1,159 +1,267 @@
-# HARV React Frontend
+# HARV Mobile App
 
-Modern React + TypeScript frontend for the HARV attendance verification system.
-
-## Tech Stack
-
-- **Framework**: React 18 + TypeScript
-- **Build Tool**: Vite 5
-- **Styling**: TailwindCSS 3
-- **Routing**: React Router v6
-- **State**: Zustand
-- **HTTP**: Axios
-- **Testing**: Playwright
-
-## Development
-
-### Local Development (Vite Dev Server)
-
-```bash
-cd frontend
-npm install
-npm run dev
-```
-
-Frontend runs on http://localhost:5173 with API proxy to http://localhost:8000
-
-### Production Build
-
-```bash
-npm run build
-npm run preview
-```
-
-## Docker Production
-
-The Dockerfile uses a multi-stage build:
-1. **Build stage**: Node.js compiles React app
-2. **Production stage**: NGINX serves static files and proxies `/api/*` to backend
-
-```bash
-docker build -t harv-frontend .
-docker run -p 8080:80 harv-frontend
-```
-
-## Project Structure
-
-```
-frontend/
-├── src/
-│   ├── main.tsx              # App entry point
-│   ├── App.tsx               # Router configuration
-│   ├── api.ts                # Axios API client
-│   ├── store/
-│   │   └── appState.ts       # Zustand global state
-│   ├── components/           # Reusable components
-│   │   ├── StatusBanner.tsx
-│   │   ├── GPSButton.tsx
-│   │   ├── ManualCoordsForm.tsx
-│   │   ├── ProfessorCalibrationForm.tsx
-│   │   ├── VerifyButtons.tsx
-│   │   ├── ImageVerifyCard.tsx
-│   │   └── JsonViewer.tsx
-│   └── pages/                # Route pages
-│       ├── Landing.tsx
-│       ├── Professor.tsx
-│       ├── Student.tsx
-│       └── Status.tsx
-├── e2e/                      # Playwright tests
-├── nginx.conf                # Production NGINX config
-├── Dockerfile                # Multi-stage production build
-└── vite.config.ts            # Vite configuration
-
-```
+React Native mobile application for HARV (Harvard Attendance Recognition and Verification) with Professor and Student modes.
 
 ## Features
 
-### Professor Mode (`/professor`)
-- Calibrate classroom location (lat/lon)
-- Set acceptable radius (epsilon_m)
-- View current calibration status
+### Professor Mode
+- **Class Creation**: Set up new classes with geolocation parameters
+- **Room Photo Attachments**: Capture 5 reference photos from different angles:
+  - Front Left Corner
+  - Front Right Corner
+  - Back Left Corner
+  - Back Right Corner
+  - Center (facing lecture screen)
+- **Secret Word Generation**: Auto-generated secret word for manual attendance override
+- **Class Management**: View all created classes
 
-### Student Mode (`/student`)
-- **GPS Verification**: Browser geolocation with permission handling
-- **IP Verification**: Fallback IP-based location
-- **Manual Coords**: Backup entry if GPS blocked
-- **Image Verification**: Photo upload with challenge word
+### Student Mode
+- **Class Enrollment**: Browse and enroll in available classes
+- **Camera-Based Check-In**: Scan classroom using device camera
+- **Dual Verification**:
+  1. GPS/Location verification (must be within acceptable radius)
+  2. Visual verification (ML model recognizes classroom)
+- **Manual Override**: Use professor's secret word if automatic check-in fails
+- **Check-In History**: View attendance record
 
-### Status Page (`/status`)
-- API health check
-- Geolocation provider status
-- Current calibration details
+## Prerequisites
+
+- Node.js 18+ and npm
+- Expo CLI: `npm install -g expo-cli`
+- iOS Simulator (Mac) or Android Emulator
+- Physical device for testing camera and GPS features
+
+## Quick Start
+
+### 1. Install Dependencies
+
+```bash
+cd mobile
+npm install
+```
+
+### 2. Configure Backend URL
+
+Create `.env` file:
+```bash
+cp .env.example .env
+```
+
+Edit `.env`:
+```
+API_URL=http://your-backend-url:8000
+# For local development on iOS Simulator:
+# API_URL=http://localhost:8000
+# For Android Emulator:
+# API_URL=http://10.0.2.2:8000
+```
+
+### 3. Start Development Server
+
+```bash
+npm start
+```
+
+This opens Expo Developer Tools. Choose your platform:
+- Press `i` for iOS Simulator
+- Press `a` for Android Emulator
+- Scan QR code with Expo Go app on physical device
+
+## Development
+
+### Project Structure
+
+```
+frontend/
+├── app/                      # Expo Router pages
+│   ├── _layout.tsx          # Root layout with navigation
+│   ├── index.tsx            # Home screen (mode selection)
+│   ├── professor/           # Professor mode screens
+│   │   ├── index.tsx       # Professor dashboard
+│   │   └── create-class.tsx # Class creation with photos
+│   └── student/             # Student mode screens
+│       ├── index.tsx        # Student dashboard
+│       ├── class-list.tsx   # Browse/enroll in classes
+│       └── check-in.tsx     # Camera-based check-in
+├── utils/
+│   ├── api.ts               # Backend API client
+│   └── store.ts             # Global state management (Zustand)
+├── app.json                 # Expo configuration
+├── package.json             # Dependencies
+└── tsconfig.json            # TypeScript config
+```
+
+### Key Technologies
+
+- **Expo**: React Native framework with managed workflow
+- **Expo Router**: File-based navigation
+- **Expo Camera**: Camera access for check-in
+- **Expo Location**: GPS coordinates
+- **Expo Image Picker**: Photo capture for room photos
+- **Zustand**: Lightweight state management
+- **Axios**: HTTP client for API calls
+
+### Testing on Physical Device
+
+Camera and GPS features require physical devices:
+
+#### iOS
+1. Install Expo Go from App Store
+2. Ensure iPhone and Mac are on same network
+3. Scan QR code from terminal
+
+#### Android
+1. Install Expo Go from Play Store
+2. Scan QR code from terminal
+3. Or use `npx expo start --tunnel` for remote access
 
 ## API Integration
 
-All API calls route through `/api/*` which NGINX proxies to `http://serve:8000/`.
+The mobile app communicates with the HARV backend API:
 
-Endpoints used:
-- `GET /healthz` - API health
-- `GET /geo/status` - Geolocation config
+### Professor Endpoints
+- `POST /professor/classes` - Create new class
+- `GET /professor/classes/{professor_id}` - Get professor's classes
+
+### Student Endpoints
+- `GET /student/classes` - Browse available classes
+- `POST /student/enroll` - Enroll in class
+- `GET /student/classes/{student_id}` - Get enrolled classes
+- `POST /student/checkin` - Check in with photo + GPS
+- `POST /student/manual-override` - Manual check-in with secret word
+
+### Geolocation
 - `POST /geo/calibrate` - Set classroom location
-- `POST /geo/verify` - Verify student location
-- `POST /verify` - Image verification
+- `GET /geo/status` - Get current calibration
+- `POST /geo/verify` - Verify location
 
-## Testing
+## Workflows
 
-### E2E Tests (Playwright)
+### Professor: Create a Class
+
+1. Tap "Professor Mode" on home screen
+2. Tap "+ Create New Class"
+3. Enter class name (e.g., "CS50 - Introduction to Computer Science")
+4. Auto-generated class code and secret word are displayed
+5. Tap "Get Current Location" to set classroom coordinates
+6. Set acceptable distance radius (default 60m)
+7. Take 5 photos from different angles in the classroom
+8. Tap "Create Class"
+
+### Student: Check In
+
+1. Tap "Student Mode" on home screen
+2. Browse available classes or view "My Classes"
+3. Enroll in a class (if not already enrolled)
+4. When in classroom, tap "📸 Check In"
+5. Grant camera and location permissions
+6. Point camera at classroom (lecture screen or distinctive feature)
+7. Tap capture button
+8. App verifies:
+   - GPS location (must be within radius)
+   - Visual recognition (ML model confirms classroom)
+9. Success: ✅ Check-in complete
+10. Failure: Option to use manual override with secret word
+
+## Building for Production
+
+### iOS
 
 ```bash
-npm run test:e2e          # Run tests
-npm run test:e2e:ui       # Interactive UI mode
+# Create iOS build
+npx expo build:ios
+
+# Or use EAS Build (recommended)
+npx eas build --platform ios
 ```
 
-Tests cover:
-- Navigation flows
-- Form interactions
-- GPS mocking
-- API integration
+### Android
 
-## Environment Variables
+```bash
+# Create Android APK
+npx expo build:android
 
-Create `.env` file (optional for local dev):
-
-```env
-VITE_API_BASE=/api
-VITE_CHALLENGE_WORD=orchid
+# Or use EAS Build (recommended)
+npx eas build --platform android
 ```
 
-## Browser Support
+## Configuration
 
-- Chrome/Edge 90+
-- Firefox 88+
-- Safari 14+
+### Permissions
 
-Requires geolocation API support for GPS features.
+The app requires:
+- **Camera**: Take photos for check-in and room documentation
+- **Location**: Verify student is in classroom
 
-## Migration Notes
+Permissions are requested at runtime with explanatory dialogs.
 
-This React frontend replaces the previous Streamlit dashboard while maintaining full feature parity:
-- ✅ Professor calibration
-- ✅ Student GPS verification  
-- ✅ Student IP verification
-- ✅ Manual coordinate entry
-- ✅ Image upload with challenge
-- ✅ Status monitoring
+### Environment Variables
+
+- `API_URL`: Backend API endpoint
 
 ## Troubleshooting
 
-### TypeScript Errors
-All "Cannot find module" errors resolve after `npm install`.
+### "Cannot connect to backend"
 
-### API Connection Issues
-- Verify backend is running on port 8000
-- Check NGINX proxy configuration
-- Review browser console for CORS errors
+**iOS Simulator:**
+- Use `http://localhost:8000` if backend is on same machine
+- Ensure backend is running: `docker compose up serve`
 
-### GPS Permission Denied
-- Use HTTPS in production (required for geolocation)
-- Check browser settings
-- Fall back to IP verification
+**Android Emulator:**
+- Use `http://10.0.2.2:8000` (Android's localhost alias)
+
+**Physical Device:**
+- Use your computer's IP address: `http://192.168.x.x:8000`
+- Ensure device and computer are on same network
+- Backend must allow connections from local network
+
+### Camera not working
+
+- Camera only works on physical devices, not simulators/emulators
+- Use Expo Go app on real phone for testing
+- Ensure camera permissions are granted
+
+### Location inaccurate
+
+- GPS accuracy varies (5-50m typically)
+- Works better outdoors
+- iOS Simulator can simulate locations
+- Android Emulator requires manual location setting
+
+## Development Tips
+
+1. **Fast Refresh**: Code changes update instantly
+2. **Logs**: Shake device → "Show Developer Menu" → "Debug JS Remotely"
+3. **Network Debugging**: Use React Native Debugger or Reactotron
+4. **State Inspection**: Install Flipper for advanced debugging
+
+## Backend Setup
+
+Ensure the HARV backend is running with mobile app support:
+
+```bash
+cd ..  # Back to root directory
+docker compose up serve
+```
+
+The backend must be accessible from your mobile device.
+
+## Contributing
+
+When adding new features:
+1. Create new screens in `app/` directory
+2. Add API endpoints to `utils/api.ts`
+3. Update navigation in `app/_layout.tsx`
+4. Test on both iOS and Android
+5. Document new workflows
+
+## License
+
+MIT License - See main project LICENSE file
+
+## Support
+
+For issues specific to the mobile app, check:
+- Expo documentation: https://docs.expo.dev/
+- React Native docs: https://reactnative.dev/
+- Main HARV documentation: `../docs/`
