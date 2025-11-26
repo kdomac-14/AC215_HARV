@@ -2,9 +2,9 @@ name: Milestone CI
 
 on:
   push:
-    branches: [main, develop]
+    branches: [main, develop, milestone4]
   pull_request:
-    branches: [main, develop]
+    branches: [main, develop, milestone4]
 
 env:
   PYTHON_VERSION: "3.11"
