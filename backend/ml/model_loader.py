@@ -13,10 +13,6 @@ import logging
 import os
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from PIL import Image as PILImage
 
 logger = logging.getLogger(__name__)
 
@@ -156,9 +152,7 @@ class VisionModel:
             return
         
         try:
-            import torch
-            from torchvision import transforms
-            from torchvision.models import mobilenet_v3_small, MobileNet_V3_Small_Weights
+            from torchvision.models import MobileNet_V3_Small_Weights, mobilenet_v3_small
             
             # Load pretrained MobileNetV3-Small (lightweight, ~2.5M params)
             weights = MobileNet_V3_Small_Weights.IMAGENET1K_V1
