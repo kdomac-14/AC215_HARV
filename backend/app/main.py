@@ -30,11 +30,15 @@ def create_app() -> FastAPI:
             "version": settings.app_version,
             "lecture_hall_bounds": settings.lecture_hall_bounds.model_dump(),
             "demo_courses": [course["code"] for course in settings.default_courses],
-            "vision_model": {
-                "name": model_info.get("model_name"),
-                "accuracy": model_info.get("accuracy"),
-                "last_updated": model_info.get("last_updated"),
-            } if model_info else None,
+            "vision_model": (
+                {
+                    "name": model_info.get("model_name"),
+                    "accuracy": model_info.get("accuracy"),
+                    "last_updated": model_info.get("last_updated"),
+                }
+                if model_info
+                else None
+            ),
         }
 
     app.include_router(checkin.router, prefix=f"{settings.api_prefix}")
