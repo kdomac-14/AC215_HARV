@@ -75,7 +75,9 @@ def log_model_version(model_dir: Path | None = None) -> dict:
     info = get_model_info(model_dir)
 
     if not info:
-        logger.warning("No promoted HARV model found. Run train/pipeline.py to train and promote a model.")
+        logger.warning(
+            "No promoted HARV model found. Run train/pipeline.py to train and promote a model."
+        )
         return info
 
     logger.info(
