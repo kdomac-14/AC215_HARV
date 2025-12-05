@@ -75,7 +75,9 @@ def log_model_version(model_dir: Path | None = None) -> dict:
     info = get_model_info(model_dir)
 
     if not info:
-        logger.warning("No promoted HARV model found. Run train/pipeline.py to train and promote a model.")
+        logger.warning(
+            "No promoted HARV model found. Run train/pipeline.py to train and promote a model."
+        )
         return info
 
     logger.info(
@@ -124,8 +126,10 @@ class VisionModel:
         model_dir = Path(os.getenv("HARV_MODEL_DIR", DEFAULT_MODEL_DIR))
         self.metadata_path = metadata_path or (model_dir / "metadata.json")
         self.metadata = self._load_metadata()
-        self.threshold = threshold if threshold is not None else self.metadata.get("threshold", 0.35)
-        
+        self.threshold = (
+            threshold if threshold is not None else self.metadata.get("threshold", 0.35)
+        )
+
         # Lazy-load model and transforms
         self._model = None
         self._transforms = None
@@ -150,18 +154,18 @@ class VisionModel:
         """Lazy-load MobileNetV3 model and transforms."""
         if self._loaded:
             return
-        
+
         try:
             from torchvision.models import MobileNet_V3_Small_Weights, mobilenet_v3_small
-            
+
             # Load pretrained MobileNetV3-Small (lightweight, ~2.5M params)
             weights = MobileNet_V3_Small_Weights.IMAGENET1K_V1
             self._model = mobilenet_v3_small(weights=weights)
             self._model.eval()
-            
+
             # Use the preprocessing transforms from the weights
             self._transforms = weights.transforms()
-            
+
             self._loaded = True
             logger.info("MobileNetV3-Small loaded successfully")
         except ImportError as e:
@@ -170,58 +174,56 @@ class VisionModel:
 
     def verify(self, image_bytes: bytes) -> tuple[bool, float]:
         """Verify if image shows a classroom/lecture hall environment.
-        
+
         Uses MobileNetV3 pretrained on ImageNet to detect classroom-related objects.
         Returns True if the confidence exceeds threshold.
         """
         self._ensure_loaded()
-        
+
         if not self._loaded or self._model is None:
             # Fallback: accept all images if model not available
             logger.warning("Model not loaded, using fallback acceptance")
             return True, 0.5
-        
+
         try:
             import torch
             from PIL import Image
-            
+
             # Load and preprocess image
             img = Image.open(io.BytesIO(image_bytes)).convert("RGB")
             input_tensor = self._transforms(img).unsqueeze(0)
-            
+
             # Run inference
             with torch.no_grad():
                 outputs = self._model(input_tensor)
                 probabilities = torch.nn.functional.softmax(outputs[0], dim=0)
-            
+
             # Sum probabilities for classroom-related classes
             classroom_confidence = sum(
-                probabilities[idx].item() 
-                for idx in CLASSROOM_INDICES 
-                if idx < len(probabilities)
+                probabilities[idx].item() for idx in CLASSROOM_INDICES if idx < len(probabilities)
             )
-            
+
             # Also check top-5 predictions for any classroom indicators
             top5_probs, top5_indices = torch.topk(probabilities, 5)
             top5_set = set(top5_indices.tolist())
             has_classroom_in_top5 = bool(top5_set & CLASSROOM_INDICES)
-            
+
             # Boost confidence if classroom object in top-5
             if has_classroom_in_top5:
                 classroom_confidence = max(classroom_confidence, 0.5)
-            
+
             # Clamp confidence to [0, 1]
             classroom_confidence = min(1.0, classroom_confidence)
-            
+
             is_classroom = classroom_confidence >= self.threshold
-            
+
             logger.info(
                 f"Vision verification: confidence={classroom_confidence:.3f}, "
                 f"is_classroom={is_classroom}, top5={top5_indices.tolist()}"
             )
-            
+
             return is_classroom, classroom_confidence
-            
+
         except Exception as e:
             logger.error(f"Vision verification failed: {e}")
             # On error, be lenient and accept with low confidence
