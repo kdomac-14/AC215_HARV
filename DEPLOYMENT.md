@@ -501,7 +501,7 @@ gcloud artifacts docker images list \
 
 ### 5.5 CI-Based Build (GitHub Actions)
 
-For automated builds, add to `.github/workflows/cd.yml`:
+For automated builds, add to `.github/workflows/cd.yml`. Set a repo secret named `GCP_SA_KEY` (or `GCP_CREDENTIALS`) containing the service account JSON; the workflow will use whichever exists.
 
 ```yaml
 name: Build and Push
@@ -519,7 +519,7 @@ jobs:
       - name: Authenticate to GCP
         uses: google-github-actions/auth@v2
         with:
-          credentials_json: ${{ secrets.GCP_SA_KEY }}
+          credentials_json: ${{ secrets.GCP_SA_KEY != '' && secrets.GCP_SA_KEY || secrets.GCP_CREDENTIALS }}
       
       - name: Configure Docker
         run: gcloud auth configure-docker us-central1-docker.pkg.dev
