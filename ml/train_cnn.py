@@ -1,4 +1,20 @@
-"""Training script for the HARV visual fallback model."""
+"""Training script for the HARV visual fallback model.
+
+This module can be run as a script or imported for programmatic use:
+
+    # As script:
+    python ml/train_cnn.py --config ml/configs/harv_vision_v1.yaml
+
+    # As import:
+    from ml.train_cnn import Config, train
+    cfg = Config.from_yaml(Path("ml/configs/harv_vision_v1.yaml"))
+    metrics = train(cfg)
+
+Public API:
+    - Config: Dataclass for training configuration
+    - train(cfg): Run training and return metrics dict
+    - run_training(config_path, output_dir=None, metrics_path=None): Convenience wrapper
+"""
 
 from __future__ import annotations
 
@@ -15,6 +31,8 @@ import yaml
 from torch import nn
 from torch.utils.data import DataLoader, Dataset
 from torchvision import datasets, models, transforms
+
+__all__ = ["Config", "train", "run_training"]
 
 
 def set_seed(seed: int) -> None:
@@ -196,6 +214,45 @@ def benchmark_latency(model: nn.Module, image_size: int) -> float:
     end = perf_counter()
     avg = (end - start) / 20
     return avg * 1000
+
+
+def run_training(
+    config_path: Path,
+    output_dir: Path | None = None,
+    metrics_path: Path | None = None,
+) -> dict:
+    """Convenience function for running training programmatically.
+
+    This wrapper loads a config from YAML and optionally overrides
+    output paths, making it easy to use from pipelines or tests.
+
+    Args:
+        config_path: Path to YAML configuration file.
+        output_dir: Optional override for model output directory.
+        metrics_path: Optional override for metrics JSON path.
+
+    Returns:
+        Dictionary of training metrics (accuracy, precision, recall, etc.).
+
+    Example:
+        >>> from ml.train_cnn import run_training
+        >>> metrics = run_training(
+        ...     Path("ml/configs/harv_vision_v1.yaml"),
+        ...     output_dir=Path("/tmp/staging/model"),
+        ...     metrics_path=Path("/tmp/staging/metrics.json"),
+        ... )
+        >>> print(f"Accuracy: {metrics['accuracy']:.2%}")
+    """
+    from dataclasses import replace as dataclass_replace
+
+    cfg = Config.from_yaml(config_path)
+
+    if output_dir is not None:
+        cfg = dataclass_replace(cfg, output_dir=output_dir)
+    if metrics_path is not None:
+        cfg = dataclass_replace(cfg, metrics_path=metrics_path)
+
+    return train(cfg)
 
 
 def parse_args() -> argparse.Namespace:
