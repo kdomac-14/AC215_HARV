@@ -200,9 +200,7 @@ class VisionModel:
 
             # Sum probabilities for classroom-related classes
             classroom_confidence = sum(
-                probabilities[idx].item()
-                for idx in CLASSROOM_INDICES
-                if idx < len(probabilities)
+                probabilities[idx].item() for idx in CLASSROOM_INDICES if idx < len(probabilities)
             )
 
             # Also check top-5 predictions for any classroom indicators
