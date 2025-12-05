@@ -18,10 +18,16 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Validate GCP credentials secret
+        if: ${{ secrets.GCP_SA_KEY == '' && secrets.GCP_CREDENTIALS == '' }}
+        run: |
+          echo "::error::Missing GCP credentials. Set GCP_SA_KEY or GCP_CREDENTIALS with the service account JSON."
+          exit 1
+
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v2
         with:
-          credentials_json: ${{ secrets.GCP_SA_KEY }}
+          credentials_json: ${{ secrets.GCP_SA_KEY != '' && secrets.GCP_SA_KEY || secrets.GCP_CREDENTIALS }}
 
       - name: Set up Google Cloud SDK
         uses: google-github-actions/setup-gcloud@v2
@@ -48,10 +54,16 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Validate GCP credentials secret
+        if: ${{ secrets.GCP_SA_KEY == '' && secrets.GCP_CREDENTIALS == '' }}
+        run: |
+          echo "::error::Missing GCP credentials. Set GCP_SA_KEY or GCP_CREDENTIALS with the service account JSON."
+          exit 1
+
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v2
         with:
-          credentials_json: ${{ secrets.GCP_SA_KEY }}
+          credentials_json: ${{ secrets.GCP_SA_KEY != '' && secrets.GCP_SA_KEY || secrets.GCP_CREDENTIALS }}
 
       - name: Set up Google Cloud SDK
         uses: google-github-actions/setup-gcloud@v2
