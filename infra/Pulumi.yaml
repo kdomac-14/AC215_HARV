@@ -1,0 +1,7 @@
+name: harv-infra
+runtime: nodejs
+description: GKE infrastructure for the HARV application
+config:
+  'pulumi:tags':
+    value:
+      'pulumi:template': gcp-ts-gke
