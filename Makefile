@@ -1,7 +1,13 @@
 SHELL := /bin/bash
 COV_TARGETS := serve/src ingestion/src preprocess/src train/src evaluate/src export/src
 PYTEST_COV := $(foreach target,$(COV_TARGETS),--cov=$(target))
-.PHONY: run down logs clean test test-unit test-integration test-e2e test-load verify coverage evidence help setup-faces fine-tune-blurry data preprocess train_cpu all
+IMAGE_TAG ?= latest
+GCP_PROJECT_ID ?= ac215-475022
+REGION ?= us-central1
+ARTIFACT_REPO ?= harv-backend
+BACKEND_IMAGE ?= $(REGION)-docker.pkg.dev/$(GCP_PROJECT_ID)/$(ARTIFACT_REPO)/backend:$(IMAGE_TAG)
+
+.PHONY: run down logs clean test test-unit test-integration test-e2e test-load verify coverage evidence help setup-faces fine-tune-blurry data preprocess train_cpu all build-backend-image push-backend-image
 
 run: ## Build and run full pipeline + API + dashboard
 	docker compose up --build
@@ -138,6 +144,15 @@ gcp-upload-artifacts: ## Upload artifacts to GCS bucket
 	bash scripts/upload_artifacts.sh
 
 gcp-full-deploy: gcp-upload-artifacts gcp-deploy ## Upload artifacts and deploy to Cloud Run
+
+build-backend-image: ## Build backend container image for Artifact Registry
+	@test -n "$(GCP_PROJECT_ID)" || (echo "GCP_PROJECT_ID is required" && exit 1)
+	@test -n "$(ARTIFACT_REPO)" || (echo "ARTIFACT_REPO is required" && exit 1)
+	docker build --platform linux/amd64 -f backend/Dockerfile -t $(BACKEND_IMAGE) .
+
+push-backend-image: build-backend-image ## Push backend image to Artifact Registry
+	gcloud auth configure-docker $(REGION)-docker.pkg.dev
+	docker push $(BACKEND_IMAGE)
 
 help: ## Show this help message
 	@echo "Available targets:"

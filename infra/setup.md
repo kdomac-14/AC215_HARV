@@ -18,6 +18,13 @@
    curl -LsSf https://astral.sh/uv/install.sh | sh
    ```
 
+## Pulumi GKE Stack (infra/)
+- Install Pulumi CLI and Node.js 18+, then `cd infra && npm install`
+- `pulumi stack init <stack-name>` (first time only)
+- `pulumi config set gcp:project <project-id>`, `pulumi config set gcp:region <region>`, `pulumi config set gcp:zone <zone>`
+- Optional: `pulumi config set nodeCount 3`, `pulumi config set nodeMachineType e2-standard-4`
+- `pulumi up` to provision the cluster; exports include cluster name, endpoint, and kubeconfig
+
 ### Cloud VM Setup (Optional)
 For deploying to a cloud VM (GCP, AWS, Azure):
 - Ubuntu 22.04 or later

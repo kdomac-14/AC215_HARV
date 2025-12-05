@@ -1,697 +1,890 @@
-# HARV Runbook
+# HARV Production Operations Runbook
 
-Operational guide for running HARV from a clean clone to deployed system.
-
----
-
-## Prerequisites
-
-### Required Software
-
-| Tool | Version | Check Command | Install |
-|------|---------|---------------|---------|
-| **Docker** | 24.0+ | `docker --version` | https://docs.docker.com/get-docker/ |
-| **Docker Compose** | 2.0+ | `docker compose version` | Included with Docker Desktop |
-| **Git** | 2.0+ | `git --version` | https://git-scm.com/downloads |
-
-### Optional Tools
-
-| Tool | Purpose | Install |
-|------|---------|---------|
-| **k6** | Load testing | `brew install k6` (Mac) / https://k6.io/docs/get-started/installation/ |
-| **Python 3.11** | Local development | https://www.python.org/downloads/ |
-
-### System Requirements
-
-- **CPU**: 2+ cores recommended
-- **RAM**: 8GB minimum (4GB for Docker, 4GB for system)
-- **Disk**: 10GB free space
-- **OS**: macOS, Linux, or Windows with WSL2
+> **SRE Runbook** – Operational procedures for HARV in production
 
 ---
 
-## Clean Clone Setup
+## Table of Contents
 
-### Step 1: Clone Repository
+1. [System Overview](#1-system-overview)
+2. [Key Commands](#2-key-commands)
+3. [Deployment Procedures](#3-deployment-procedures)
+4. [Model Management](#4-model-management)
+5. [Incident Response](#5-incident-response)
+6. [Logs & Monitoring](#6-logs--monitoring)
+7. [Post-Incident Actions](#7-post-incident-actions)
+
+---
+
+## 1. System Overview
+
+### Architecture Summary
+
+HARV (Harvard Attendance Recognition and Verification) runs on **Google Kubernetes Engine (GKE)** as a FastAPI backend serving GPS-based attendance verification with ML-powered face recognition fallback. Traffic enters through a **GCP Load Balancer** provisioned by a Kubernetes Service, distributing requests across 2-5 backend pods managed by a **Horizontal Pod Autoscaler (HPA)**. The ML model (MobileNetV3-Small, TorchScript format) is loaded from **Google Cloud Storage** at container startup. Attendance data persists in **Firestore**.
+
+### Production Definition
+
+| Component | Production State |
+|-----------|------------------|
+| **Compute** | GKE cluster (`harv-cluster-prod`) in `us-central1-a` |
+| **Networking** | LoadBalancer Service with external IP |
+| **Scaling** | HPA: 2 min, 5 max replicas @ 80% CPU target |
+| **Container Registry** | `us-central1-docker.pkg.dev/ac215-475022/harv-backend` |
+| **Model Storage** | `gs://ac215-475022-assets/artifacts/model/` |
+| **Database** | Firestore (Native mode) |
+| **IaC** | Pulumi stack: `prod` |
+
+### Service Endpoints
+
+| Endpoint | Purpose | Expected Response |
+|----------|---------|-------------------|
+| `GET /health` | Health check | `{"ok": true, "app": "harv"}` |
+| `POST /api/checkin/gps` | GPS attendance | `{"status": "present"}` |
+| `POST /api/checkin/vision` | Vision fallback | `{"verified": true}` |
+| `GET /api/instructor/attendance` | Attendance roster | JSON array |
+
+### Contact & Escalation
+
+| Role | Contact | When to Escalate |
+|------|---------|------------------|
+| **On-Call Engineer** | Slack: `#harv-oncall` | First responder |
+| **Tech Lead** | Email: `harv-leads@` | P1/P2 incidents |
+| **Infrastructure** | Slack: `#infra-support` | GKE/GCP issues |
+
+---
+
+## 2. Key Commands
+
+### Quick Reference Card
 
 ```bash
-git clone https://github.com/kdomac-14/AC215_HLAV.git
-cd AC215_HLAV
+# ============================================
+# HARV Production Operations - Quick Reference
+# ============================================
+
+# --- Cluster Access ---
+export KUBECONFIG=~/.kube/harv-prod-config
+gcloud container clusters get-credentials harv-cluster-prod \
+  --zone us-central1-a --project ac215-475022
+
+# --- Pod Status ---
+kubectl get pods -l app=harv-backend
+kubectl get pods -l app=harv-backend -o wide  # with node info
+
+# --- Service Status ---
+kubectl get svc harv-backend-lb
+kubectl get endpoints harv-backend-svc
+
+# --- HPA Status ---
+kubectl get hpa harv-backend-hpa
+kubectl describe hpa harv-backend-hpa
+
+# --- Logs ---
+kubectl logs -l app=harv-backend --tail=100
+kubectl logs -l app=harv-backend -f  # follow
+
+# --- Quick Health Check ---
+LB_IP=$(kubectl get svc harv-backend-lb -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+curl http://$LB_IP/health
 ```
 
-### Step 2: Configure Environment
+### 2.1 Check Pod Status
 
 ```bash
-# Copy environment template
-cp .env.example .env
+# List all backend pods
+kubectl get pods -l app=harv-backend
 
-# Edit .env (optional)
-nano .env
+# Example output:
+# NAME                            READY   STATUS    RESTARTS   AGE
+# harv-backend-6d4f5b7c8d-abc12   1/1     Running   0          2h
+# harv-backend-6d4f5b7c8d-def34   1/1     Running   0          2h
+
+# Detailed pod info
+kubectl get pods -l app=harv-backend -o wide
+
+# Check pod events (useful for debugging)
+kubectl describe pod <pod-name>
+
+# Check all pods across namespaces (if needed)
+kubectl get pods --all-namespaces | grep harv
 ```
 
-**Minimal `.env` (works out-of-box):**
+### 2.2 Restart Deployment
+
 ```bash
-WANDB_DISABLED=true
-SERVICE_PORT=8000
-DASH_PORT=8501
-GEO_PROVIDER=mock
-GEO_EPSILON_M=60
+# Rolling restart (zero-downtime)
+kubectl rollout restart deployment/harv-backend
+
+# Watch rollout progress
+kubectl rollout status deployment/harv-backend
+
+# Example output:
+# deployment "harv-backend" successfully rolled out
+
+# Force restart specific pod (delete and let deployment recreate)
+kubectl delete pod <pod-name>
 ```
 
-**Optional Enhancements:**
+### 2.3 Port-Forward for Debugging
+
 ```bash
-# For W&B experiment tracking
-WANDB_API_KEY=your_key_here
-WANDB_DISABLED=false
+# Forward local port to pod (bypasses load balancer)
+kubectl port-forward deployment/harv-backend 8000:8000
 
-# For Google Geolocation API (higher accuracy)
-GOOGLE_API_KEY=your_google_api_key
-GEO_PROVIDER=google
+# In another terminal:
+curl http://localhost:8000/health
 
-# For GCP deployment
-PROJECT_ID=ac215-475022
-GOOGLE_APPLICATION_CREDENTIALS=./service-account.json
+# Forward to specific pod
+kubectl port-forward pod/harv-backend-6d4f5b7c8d-abc12 8000:8000
 
-# For Firestore persistence
-DB_BACKEND=firestore
-FIRESTORE_PROJECT_ID=ac215-475022
-FIRESTORE_COLLECTION_PREFIX=harv
+# Forward with verbose output
+kubectl port-forward deployment/harv-backend 8000:8000 -v=6
 ```
 
-### Step 3: Verify Docker
+### 2.4 Check HPA Scaling Metrics
 
 ```bash
-# Check Docker is running
-docker ps
+# Current HPA status
+kubectl get hpa harv-backend-hpa
 
-# If not running, start Docker Desktop
-# Mac: open -a Docker
-# Linux: sudo systemctl start docker
+# Example output:
+# NAME               REFERENCE                 TARGETS   MINPODS   MAXPODS   REPLICAS   AGE
+# harv-backend-hpa   Deployment/harv-backend   15%/80%   2         5         2          3d
 
-# Test Docker Compose
-docker compose version
+# Detailed HPA info (includes events)
+kubectl describe hpa harv-backend-hpa
+
+# Watch HPA in real-time
+kubectl get hpa harv-backend-hpa --watch
+
+# Check current CPU usage per pod
+kubectl top pods -l app=harv-backend
+
+# Check node resources
+kubectl top nodes
+```
+
+### 2.5 Describe Failed Pods
+
+```bash
+# Get pod status with failure reason
+kubectl get pods -l app=harv-backend -o jsonpath='{range .items[*]}{.metadata.name}{"\t"}{.status.phase}{"\t"}{.status.containerStatuses[0].state}{"\n"}{end}'
+
+# Describe pod for detailed events
+kubectl describe pod <pod-name>
+
+# Key sections to check:
+# - Events (bottom of output)
+# - State (under Containers)
+# - Last State (for crash info)
+
+# Get pod logs from crashed container
+kubectl logs <pod-name> --previous
+
+# Get events sorted by time
+kubectl get events --sort-by='.lastTimestamp' | grep harv
+```
+
+### 2.6 Service & Networking
+
+```bash
+# Get Load Balancer external IP
+kubectl get svc harv-backend-lb -o jsonpath='{.status.loadBalancer.ingress[0].ip}'
+
+# Check service endpoints (should list pod IPs)
+kubectl get endpoints harv-backend-svc
+
+# Test connectivity from within cluster
+kubectl run debug --rm -it --image=curlimages/curl -- curl http://harv-backend-svc/health
+
+# Check service configuration
+kubectl describe svc harv-backend-lb
 ```
 
 ---
 
-## Running the System
+## 3. Deployment Procedures
 
-### Option 1: Single Command (Recommended)
+### 3.1 Standard Deploy (CI/CD)
+
+The standard deployment flow is triggered by merging to `main`:
+
+```
+Push to main → GitHub Actions → Build Docker Image → Push to Artifact Registry → Update Pulumi Config → Deploy to GKE
+```
+
+**Monitor CI/CD Pipeline:**
+1. Go to: https://github.com/kdomac-14/AC215_HARV/actions
+2. Watch the latest workflow run
+3. Verify all jobs pass (lint, test, build, deploy)
+
+**Verify Deployment:**
+```bash
+# Check new pods are running
+kubectl get pods -l app=harv-backend
+
+# Verify image version
+kubectl get deployment harv-backend -o jsonpath='{.spec.template.spec.containers[0].image}'
+
+# Test health endpoint
+LB_IP=$(kubectl get svc harv-backend-lb -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+curl http://$LB_IP/health
+```
+
+### 3.2 Manual Deploy Using Pulumi
+
+Use when CI/CD is unavailable or for emergency hotfixes:
 
 ```bash
-make run
+# 1. Build and push new image
+cd /path/to/AC215_HARV
+IMAGE_TAG=$(git rev-parse --short HEAD)
+make build-backend-image IMAGE_TAG=$IMAGE_TAG
+make push-backend-image IMAGE_TAG=$IMAGE_TAG
+
+# 2. Update Pulumi config
+cd infra
+pulumi config set harv:backendImage \
+  us-central1-docker.pkg.dev/ac215-475022/harv-backend/backend:$IMAGE_TAG
+
+# 3. Preview changes
+pulumi preview
+
+# 4. Deploy (requires confirmation)
+pulumi up
+
+# 5. Verify deployment
+kubectl rollout status deployment/harv-backend
 ```
 
-**What this does:**
-1. Builds all Docker images (~5-10 minutes first time)
-2. Runs pipeline sequentially: ingestion → preprocess → train → evaluate → export
-3. Starts serve and dashboard services
-4. Keeps services running for testing
+### 3.3 Rolling Back to Previous Image
 
-**Expected output:**
-```
-[+] Building complete (5 services)
-[+] Running ingestion... done
-[+] Running preprocess... done
-[+] Running train... done
-[+] Running evaluate... done
-[+] Running export... done
-[+] Starting serve... running
-[+] Starting dashboard... running
+#### Option A: kubectl (Fastest)
 
-Services ready:
-- API: http://localhost:8000
-- Dashboard: http://localhost:8501
-```
-
-**Expected runtime:**
-- First run (with build): 15-20 minutes
-- Subsequent runs: 2-3 minutes
-
-### Option 2: Step-by-Step
-
-**Build images:**
 ```bash
-docker compose build
+# View deployment history
+kubectl rollout history deployment/harv-backend
+
+# Rollback to previous revision
+kubectl rollout undo deployment/harv-backend
+
+# Rollback to specific revision
+kubectl rollout undo deployment/harv-backend --to-revision=2
+
+# Verify rollback
+kubectl rollout status deployment/harv-backend
+kubectl get deployment harv-backend -o jsonpath='{.spec.template.spec.containers[0].image}'
 ```
 
-**Run pipeline components:**
+#### Option B: Pulumi Stack History
+
 ```bash
-docker compose run ingestion
-docker compose run preprocess
-docker compose run train
-docker compose run evaluate
-docker compose run export
+cd infra
+
+# View stack history
+pulumi stack history
+
+# Example output:
+# VERSION  DATE                 DESCRIPTION
+# 5        2024-01-15 10:30:00  Update backend image to abc123
+# 4        2024-01-14 15:00:00  Update backend image to def456
+# 3        2024-01-13 09:00:00  Initial deployment
+
+# Rollback by setting previous image
+pulumi config set harv:backendImage \
+  us-central1-docker.pkg.dev/ac215-475022/harv-backend/backend:<previous-tag>
+pulumi up
 ```
 
-**Start services:**
+#### Option C: Direct Image Update
+
 ```bash
-docker compose up serve dashboard
-```
+# Set specific image version directly
+kubectl set image deployment/harv-backend \
+  harv-backend=us-central1-docker.pkg.dev/ac215-475022/harv-backend/backend:<tag>
 
-### Option 3: Development Mode
-
-**Run single component:**
-```bash
-# Just train
-docker compose run train
-
-# Just serve (uses existing model)
-docker compose up serve
-```
-
-**Rebuild single service:**
-```bash
-docker compose build train
-docker compose run train
+# Watch rollout
+kubectl rollout status deployment/harv-backend
 ```
 
 ---
 
-## Validating the System
+## 4. Model Management
 
-### Health Checks
+### 4.1 View Current Production Model Version
 
-**API health:**
 ```bash
-curl http://localhost:8000/healthz
+# Check model metadata in GCS
+gsutil cat gs://ac215-475022-assets/artifacts/model/metadata.json | jq .
+
+# Example output:
+# {
+#   "model_name": "mobilenet_v3_small",
+#   "version": "v1.2.0",
+#   "accuracy": 0.92,
+#   "created_at": "2024-01-15T10:00:00Z",
+#   "commit_sha": "abc1234"
+# }
+
+# Check model file timestamp
+gsutil ls -l gs://ac215-475022-assets/artifacts/model/
+
+# Verify model loaded in running pods
+kubectl exec -it deployment/harv-backend -- cat /app/artifacts/model/metadata.json
 ```
 
-Expected:
-```json
-{
-  "ok": true,
-  "model": "mobilenet_v3_small",
-  "num_classes": 2,
-  "classes": ["ProfA", "Room1"],
-  "geo_provider": "mock"
-}
-```
+### 4.2 Manually Promote a Model
 
-**Dashboard:**
-Open browser to http://localhost:8501
-
-Expected: Streamlit interface with "Upload Image" button
-
-### Test Inference
-
-**Create test image:**
 ```bash
-python3 -c "
-import base64, numpy as np, cv2, json
-img = 255 * np.ones((224, 224, 3), dtype=np.uint8)
-_, buf = cv2.imencode('.jpg', img)
-b64 = base64.b64encode(buf).decode()
-payload = {'image_b64': b64, 'challenge_word': 'orchid'}
-print(json.dumps(payload))
-" > test_payload.json
-```
+# 1. Verify new model exists in staging location
+gsutil ls gs://ac215-475022-assets/artifacts/staging/model/
 
-**Send request:**
-```bash
-curl -X POST http://localhost:8000/verify \
+# 2. Backup current production model
+TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+gsutil -m cp -r gs://ac215-475022-assets/artifacts/model/ \
+  gs://ac215-475022-assets/artifacts/model_backup_$TIMESTAMP/
+
+# 3. Promote staging model to production
+gsutil -m cp -r gs://ac215-475022-assets/artifacts/staging/model/* \
+  gs://ac215-475022-assets/artifacts/model/
+
+# 4. Restart pods to load new model
+kubectl rollout restart deployment/harv-backend
+
+# 5. Verify new model is loaded
+kubectl logs -l app=harv-backend | grep "Model loaded"
+
+# 6. Test inference
+LB_IP=$(kubectl get svc harv-backend-lb -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+curl -X POST http://$LB_IP/api/checkin/vision \
   -H "Content-Type: application/json" \
-  -d @test_payload.json
+  -d '{"image_b64": "<base64-test-image>", "student_id": "test"}'
 ```
 
-Expected:
-```json
-{
-  "ok": true,
-  "label": "ProfA",
-  "confidence": 0.52,
-  "latency_ms": 15
-}
-```
-
-### Run Tests
-
-**All tests:**
-```bash
-make test
-```
-
-Expected: All tests pass (unit, integration, e2e)
-
-**Coverage report:**
-```bash
-make coverage
-```
-
-Expected: Opens HTML report showing ≥50% coverage
-
----
-
-## Common Workflows
-
-### Complete Verification (Grader Path)
+### 4.3 Re-run Training Pipeline
 
 ```bash
-# Complete build + test + evidence generation
-make verify
+# Option A: Run via Docker Compose (local)
+cd /path/to/AC215_HARV
+make all  # Runs: ingest → preprocess → train → evaluate → export
 
-# View results
-open evidence/coverage/html/index.html
-cat evidence/e2e/e2e_results.json
+# Option B: Run individual stages
+docker compose run --rm ingestion
+docker compose run --rm preprocess
+docker compose run --rm train
+docker compose run --rm evaluate
+docker compose run --rm export
+
+# Option C: Run via DVC (if configured)
+dvc repro
+
+# After training, upload new model to staging
+gsutil -m cp -r ./artifacts/model/* \
+  gs://ac215-475022-assets/artifacts/staging/model/
+
+# Review metrics before promotion
+cat ./artifacts/metrics.json | jq .
 ```
 
-**Expected outcome:**
-- ✅ All services build successfully
-- ✅ All tests pass
-- ✅ Coverage ≥50%
-- ✅ Evidence archive created: `milestone2_evidence_*.tar.gz`
-
-### Retraining with New Data
+### 4.4 Model Rollback
 
 ```bash
-# 1. Add images to data/raw/
-mkdir -p data/raw/ProfA data/raw/Room1
-cp /path/to/your/images/*.jpg data/raw/ProfA/
+# List available backups
+gsutil ls gs://ac215-475022-assets/artifacts/ | grep model_backup
 
-# 2. Enable real data in params.yaml
-sed -i '' 's/use_real_faces: false/use_real_faces: true/' params.yaml
+# Restore specific backup
+gsutil -m cp -r gs://ac215-475022-assets/artifacts/model_backup_20240115_100000/* \
+  gs://ac215-475022-assets/artifacts/model/
 
-# 3. Run pipeline
-make run
-```
-
-### Changing Model
-
-```bash
-# Edit params.yaml
-nano params.yaml
-
-# Change model_name
-# model_name: efficientnet_b0  # or mobilenet_v3_small
-
-# Retrain
-docker compose run train
-docker compose run evaluate
-docker compose run export
-
-# Restart serve
-docker compose restart serve
-```
-
-### Clean Restart
-
-```bash
-# Stop services and remove volumes
-make down
-
-# Remove artifacts
-make clean
-
-# Fresh run
-make run
+# Restart pods
+kubectl rollout restart deployment/harv-backend
 ```
 
 ---
 
-## Troubleshooting
+## 5. Incident Response
 
-### Issue: Port Already in Use
+### INC-001: Backend Returning 5xx Errors
 
-**Error:**
-```
-Error starting userland proxy: listen tcp4 0.0.0.0:8000: bind: address already in use
-```
+**Severity**: P1 (if >1% of requests affected)
 
-**Solution 1: Change ports in .env**
+**Symptoms:**
+- Users report "Server Error" messages
+- Monitoring shows elevated 5xx rate
+- Health check returns non-200
+
+**Diagnosis:**
+
 ```bash
-echo "SERVICE_PORT=8080" >> .env
-echo "DASH_PORT=8502" >> .env
-docker compose up serve dashboard
+# 1. Check pod status
+kubectl get pods -l app=harv-backend
+# Look for: CrashLoopBackOff, Error, or low READY count
+
+# 2. Check recent logs for errors
+kubectl logs -l app=harv-backend --tail=200 | grep -i error
+
+# 3. Check if pods are OOMKilled
+kubectl describe pods -l app=harv-backend | grep -A5 "Last State"
+
+# 4. Check resource usage
+kubectl top pods -l app=harv-backend
+
+# 5. Test health endpoint directly
+kubectl port-forward deployment/harv-backend 8000:8000 &
+curl http://localhost:8000/health
 ```
 
-**Solution 2: Kill process on port**
+**Resolution:**
+
 ```bash
-# Find process
-lsof -i :8000
+# If pods are crashing:
+kubectl rollout restart deployment/harv-backend
 
-# Kill it
-kill -9 <PID>
-```
+# If OOMKilled, increase memory limits:
+# Edit infra/index.ts and redeploy, or:
+kubectl patch deployment harv-backend --type='json' -p='[
+  {"op": "replace", "path": "/spec/template/spec/containers/0/resources/limits/memory", "value": "1Gi"}
+]'
 
-### Issue: Docker Build Fails
+# If model loading fails, check GCS permissions:
+gsutil ls gs://ac215-475022-assets/artifacts/model/
 
-**Error:**
-```
-failed to solve: process "/bin/sh -c pip install ..." did not complete successfully
-```
-
-**Solution:**
-```bash
-# Clear Docker cache
-docker system prune -a
-
-# Rebuild
-docker compose build --no-cache
-```
-
-### Issue: CUDA Out of Memory
-
-**Error:**
-```
-RuntimeError: CUDA out of memory. Tried to allocate X.XX GiB
-```
-
-**Solution:**
-```bash
-# Reduce batch size in params.yaml
-nano params.yaml
-# Change: batch_size: 8  # or 4
-
-# Rerun
-docker compose run train
-```
-
-### Issue: Low Accuracy
-
-**Symptom:** Model accuracy <50%
-
-**Possible causes:**
-1. Insufficient training data
-2. Too few epochs
-3. Wrong learning rate
-
-**Solution:**
-```bash
-# Check params.yaml
-cat params.yaml
-
-# Increase epochs
-# epochs: 10  # from 3
-
-# Add more data to data/raw/
-
-# Retrain
-docker compose run train
-```
-
-### Issue: Services Not Ready
-
-**Error:**
-```
-requests.exceptions.ConnectionError: ('Connection aborted.', RemoteDisconnected(...))
-```
-
-**Solution:**
-```bash
-# Wait for services to start
-bash scripts/wait_for_services.sh
-
-# Or manually check logs
-docker compose logs serve | grep "Application startup complete"
-```
-
-### Issue: Test Failures
-
-**Error:**
-```
-AssertionError: assert 0.45 > 0.50
-```
-
-**Solution:**
-```bash
-# Check if pipeline completed successfully
-ls artifacts/model/model.torchscript.pt
-
-# Check metrics
-cat artifacts/metrics.json
-
-# If model missing, run pipeline first
-make run
-
-# Then rerun tests
-make test
-```
-
-### Issue: Permission Denied (Linux)
-
-**Error:**
-```
-Got permission denied while trying to connect to the Docker daemon socket
-```
-
-**Solution:**
-```bash
-# Add user to docker group
-sudo usermod -aG docker $USER
-
-# Log out and back in, or:
-newgrp docker
-
-# Test
-docker ps
-```
-
-### Issue: Disk Space Full
-
-**Error:**
-```
-OSError: [Errno 28] No space left on device
-```
-
-**Solution:**
-```bash
-# Check disk space
-df -h
-
-# Clean Docker artifacts
-docker system prune -a --volumes
-
-# Remove old evidence
-rm -rf evidence/*.tar.gz
-
-# Clean Python cache
-find . -type d -name __pycache__ -exec rm -rf {} +
+# Rollback if recent deployment caused issue:
+kubectl rollout undo deployment/harv-backend
 ```
 
 ---
 
-## Performance Tuning
+### INC-002: ML Model Failing to Load
 
-### Faster Training (CPU)
+**Severity**: P1 (service degraded)
 
-```yaml
-# params.yaml
-batch_size: 32      # Increase (if RAM allows)
-epochs: 3           # Keep minimal for testing
-freeze_ratio: 0.8   # Freeze more layers
-```
+**Symptoms:**
+- Health check shows `"model": null`
+- Vision fallback requests fail
+- Logs show "Model not found" or "TorchScript load error"
 
-### Smaller Model Size
-
-```yaml
-# params.yaml
-model_name: mobilenet_v3_small  # Smaller than efficientnet_b0
-```
-
-### Faster Inference
+**Diagnosis:**
 
 ```bash
-# Use smaller batch size for dashboard
-# dashboard/app/app.py
-# Reduce timeout in API calls
+# 1. Check pod logs for model loading errors
+kubectl logs -l app=harv-backend | grep -i "model\|torch\|load"
+
+# 2. Verify model exists in GCS
+gsutil ls -l gs://ac215-475022-assets/artifacts/model/
+
+# 3. Check model file is valid
+gsutil cat gs://ac215-475022-assets/artifacts/model/metadata.json
+
+# 4. Test model download from pod
+kubectl exec -it deployment/harv-backend -- ls -la /app/artifacts/model/
+
+# 5. Check service account permissions
+gcloud projects get-iam-policy ac215-475022 --flatten="bindings[].members" \
+  --filter="bindings.members:harv-service" --format="table(bindings.role)"
+```
+
+**Resolution:**
+
+```bash
+# If model file is missing or corrupted:
+# Re-upload from local artifacts
+gsutil -m cp -r ./artifacts/model/* gs://ac215-475022-assets/artifacts/model/
+
+# If permissions issue:
+gcloud projects add-iam-policy-binding ac215-475022 \
+  --member="serviceAccount:harv-service@ac215-475022.iam.gserviceaccount.com" \
+  --role="roles/storage.objectViewer"
+
+# Restart pods to retry model load
+kubectl rollout restart deployment/harv-backend
+
+# If still failing, restore from backup
+gsutil -m cp -r gs://ac215-475022-assets/artifacts/model_backup_<latest>/* \
+  gs://ac215-475022-assets/artifacts/model/
+kubectl rollout restart deployment/harv-backend
 ```
 
 ---
 
-## Deployment
+### INC-003: Service Unreachable (LB Down / DNS)
 
-### Deploy to GCP Cloud Run
+**Severity**: P1 (complete outage)
+
+**Symptoms:**
+- All requests timeout
+- Cannot reach Load Balancer IP
+- Mobile app shows "Connection Error"
+
+**Diagnosis:**
 
 ```bash
-# 1. Setup GCP credentials
-make gcp-setup
+# 1. Check Load Balancer status
+kubectl get svc harv-backend-lb
 
-# 2. Deploy
-make gcp-full-deploy
+# Look for EXTERNAL-IP: should have IP, not <pending>
 
-# Expected output:
-# Service URL: https://harv-backend-xyz-uc.a.run.app
+# 2. Check LB health
+kubectl describe svc harv-backend-lb
+
+# 3. Check endpoints (should list pod IPs)
+kubectl get endpoints harv-backend-svc
+# If empty, pods are not ready
+
+# 4. Check pods are running and ready
+kubectl get pods -l app=harv-backend
+
+# 5. Test from within cluster
+kubectl run debug --rm -it --image=curlimages/curl -- \
+  curl http://harv-backend-svc/health
+
+# 6. Check GCP Load Balancer in console
+# https://console.cloud.google.com/net-services/loadbalancing/list
 ```
 
-#### Firestore setup
-
-1. From the GCP console enable the Firestore API for your project and create a **Native** Firestore database (recommended location: `us-central1` to match Cloud Run).
-2. Grant the service account used for deployments (see `service-account.json`) the `Cloud Datastore User` and `Datastore Owner` roles so it can read/write attendance data.
-3. Download the JSON key for that service account and keep it as `service-account.json` at the repo root (already gitignored).
-4. Set the following env vars (locally and in Cloud Run):
-   - `DB_BACKEND=firestore`
-   - `FIRESTORE_PROJECT_ID=<your-project>`
-   - `FIRESTORE_COLLECTION_PREFIX=harv` (or a custom namespace if you need multiple environments)
-   - `GOOGLE_APPLICATION_CREDENTIALS=/app/service-account.json` (or rely on Cloud Run's attached service account).
-5. When running via Docker Compose locally, mount the credential file into the `serve` container (e.g. `./service-account.json:/app/service-account.json:ro`) so Firestore can authenticate.
-
-See `DEPLOYMENT.md` for detailed deployment guide.
-
-### Environment Variables for Production
+**Resolution:**
 
 ```bash
-# .env (production)
-WANDB_DISABLED=true
-GEO_PROVIDER=google
-GOOGLE_API_KEY=your_production_key
-GEO_EPSILON_M=60
-PROJECT_ID=ac215-475022
-```
+# If EXTERNAL-IP is <pending>:
+# Wait up to 5 minutes for IP provisioning
+# If still pending, check GCP quotas
 
----
+# If endpoints are empty:
+# Check pod readiness probes
+kubectl describe deployment harv-backend | grep -A10 "Readiness"
 
-## Monitoring
+# Restart deployment
+kubectl rollout restart deployment/harv-backend
 
-### View Logs
+# If LB is misconfigured, recreate service:
+kubectl delete svc harv-backend-lb
+cd infra && pulumi up  # Recreates service
 
-```bash
-# All services
-docker compose logs -f
-
-# Specific service
-docker compose logs -f serve
-docker compose logs -f train
-
-# Last 100 lines
-docker compose logs --tail=100 serve
-```
-
-### Check Artifacts
-
-```bash
-# Model exists
-ls -lh artifacts/model/model.torchscript.pt
-
-# Metrics
-cat artifacts/metrics.json | jq .
-
-# Checkpoints
-ls -lh artifacts/checkpoints/
-```
-
-### Resource Usage
-
-```bash
-# Docker stats
-docker stats
-
-# Disk usage
-docker system df
+# For DNS issues (if using custom domain):
+# Check A record points to LB IP
+dig harv-api.your-domain.com
 ```
 
 ---
 
-## Cleanup
+### INC-004: HPA Stuck at Low or High Replicas
 
-### Stop Services
+**Severity**: P2 (performance degradation or cost)
+
+**Symptoms:**
+- HPA shows `<unknown>/80%` for targets
+- Replicas stuck at min despite high load
+- Replicas stuck at max despite low load
+
+**Diagnosis:**
 
 ```bash
-# Stop but keep containers
-docker compose stop
+# 1. Check HPA status
+kubectl get hpa harv-backend-hpa
+kubectl describe hpa harv-backend-hpa
 
-# Stop and remove containers
-docker compose down
+# Look for:
+# - "unable to get metrics" errors
+# - Target shows <unknown>
 
-# Stop and remove volumes
-docker compose down -v
+# 2. Check metrics-server is running
+kubectl get pods -n kube-system | grep metrics-server
+
+# 3. Check resource requests are set
+kubectl get deployment harv-backend -o yaml | grep -A10 resources
+
+# 4. Check current pod CPU usage
+kubectl top pods -l app=harv-backend
+
+# 5. Check HPA events
+kubectl get events --field-selector involvedObject.name=harv-backend-hpa
 ```
 
-### Remove Artifacts
+**Resolution:**
 
 ```bash
-# Clean generated files
-make clean
+# If metrics-server is missing or failing:
+# GKE should auto-install; if not:
+kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
 
-# Removes:
-# - artifacts/
-# - data/processed/
-# - data/interim/
-# - evidence/
-```
+# If resource requests not set:
+kubectl patch deployment harv-backend --type='json' -p='[
+  {"op": "add", "path": "/spec/template/spec/containers/0/resources/requests", 
+   "value": {"cpu": "100m", "memory": "256Mi"}}
+]'
 
-### Complete Reset
+# If stuck at max, check for:
+# - Memory leaks (check pod memory over time)
+# - Slow responses causing request queuing
+kubectl top pods -l app=harv-backend --containers
 
-```bash
-# Remove everything
-docker compose down -v
-docker system prune -a
-make clean
+# Force scale manually (temporary):
+kubectl scale deployment harv-backend --replicas=3
 
-# Fresh start
-make run
-```
-
----
-
-## Development Tips
-
-### Hot Reload for Serve
-
-```bash
-# Edit serve/src/app.py
-# Restart only serve service
-docker compose restart serve
-```
-
-### Local Python Environment
-
-```bash
-# For IDE development (no Docker)
-cd train/
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -e .
-
-# Run locally
-python -m src.train
-```
-
-### Debugging
-
-```bash
-# Interactive shell in container
-docker compose run --rm train /bin/bash
-
-# Check environment
-docker compose run --rm train env
-
-# Test script
-docker compose run --rm train python -c "import torch; print(torch.__version__)"
+# Reset HPA:
+kubectl delete hpa harv-backend-hpa
+cd infra && pulumi up  # Recreates HPA
 ```
 
 ---
 
-## Quick Reference
+## 6. Logs & Monitoring
 
-| Command | Purpose |
-|---------|---------|
-| `make run` | Build + run full pipeline + start services |
-| `make test` | Run all tests |
-| `make verify` | Complete verification (build + test + evidence) |
-| `make coverage` | Generate and view coverage report |
-| `make down` | Stop services and remove containers |
-| `make clean` | Remove artifacts and generated data |
-| `make logs` | Follow logs from all services |
-| `make evidence` | Export evidence for submission |
-| `docker compose build` | Build all images |
-| `docker compose up serve` | Start only serve service |
-| `docker compose logs -f train` | View train logs |
-| `docker compose run train` | Run train component once |
+### 6.1 kubectl Logs
+
+```bash
+# === Basic Log Commands ===
+
+# Tail logs from all backend pods
+kubectl logs -l app=harv-backend --tail=100
+
+# Follow logs in real-time
+kubectl logs -l app=harv-backend -f
+
+# Logs from specific pod
+kubectl logs harv-backend-6d4f5b7c8d-abc12
+
+# Logs from previous container (after crash)
+kubectl logs harv-backend-6d4f5b7c8d-abc12 --previous
+
+# Logs with timestamps
+kubectl logs -l app=harv-backend --timestamps
+
+# Logs from last hour
+kubectl logs -l app=harv-backend --since=1h
+
+# === Filtering Logs ===
+
+# Search for errors
+kubectl logs -l app=harv-backend | grep -i error
+
+# Search for specific request
+kubectl logs -l app=harv-backend | grep "student_id.*test123"
+
+# Count error occurrences
+kubectl logs -l app=harv-backend | grep -c "ERROR"
+
+# === Multi-container ===
+
+# If pods have multiple containers
+kubectl logs <pod-name> -c harv-backend
+```
+
+### 6.2 GCP Cloud Logging
+
+Access via: https://console.cloud.google.com/logs/query?project=ac215-475022
+
+**Sample Queries:**
+
+```
+# All backend logs
+resource.type="k8s_container"
+resource.labels.cluster_name="harv-cluster-prod"
+resource.labels.container_name="harv-backend"
+
+# Errors only
+resource.type="k8s_container"
+resource.labels.container_name="harv-backend"
+severity>=ERROR
+
+# Specific time range with errors
+resource.type="k8s_container"
+resource.labels.container_name="harv-backend"
+severity>=ERROR
+timestamp>="2024-01-15T10:00:00Z"
+timestamp<="2024-01-15T11:00:00Z"
+
+# Request latency (if logged)
+resource.type="k8s_container"
+resource.labels.container_name="harv-backend"
+jsonPayload.latency_ms>1000
+
+# 5xx responses
+resource.type="k8s_container"
+resource.labels.container_name="harv-backend"
+jsonPayload.status_code>=500
+
+# Model loading events
+resource.type="k8s_container"
+resource.labels.container_name="harv-backend"
+textPayload=~"model|Model"
+```
+
+**Create Log-Based Alert:**
+1. Run query in Logs Explorer
+2. Click "Create Alert"
+3. Set conditions (e.g., >10 errors in 5 minutes)
+4. Configure notification channel
+
+### 6.3 Monitoring Dashboards
+
+**GKE Dashboard:**
+https://console.cloud.google.com/kubernetes/workload?project=ac215-475022
+
+**Key Metrics to Monitor:**
+
+| Metric | Location | Alert Threshold |
+|--------|----------|-----------------|
+| Pod CPU | GKE Workloads | >80% sustained |
+| Pod Memory | GKE Workloads | >85% |
+| Request Latency | Cloud Monitoring | p99 >2s |
+| Error Rate | Cloud Logging | >1% of requests |
+| Pod Restarts | GKE Workloads | >3 in 10 minutes |
+
+### 6.4 Quick Monitoring Commands
+
+```bash
+# Real-time resource usage
+watch -n 5 'kubectl top pods -l app=harv-backend'
+
+# Pod restart count
+kubectl get pods -l app=harv-backend -o jsonpath='{range .items[*]}{.metadata.name}{"\t"}{.status.containerStatuses[0].restartCount}{"\n"}{end}'
+
+# Recent events
+kubectl get events --sort-by='.lastTimestamp' | tail -20
+
+# HPA current state
+watch -n 10 'kubectl get hpa harv-backend-hpa'
+```
 
 ---
 
-## Next Steps
+## 7. Post-Incident Actions
 
-After successful setup:
+### 7.1 Generate Incident Report
 
-1. **Test API**: `curl http://localhost:8000/healthz`
-2. **Test Dashboard**: Open http://localhost:8501
-3. **Run Tests**: `make test`
-4. **Generate Evidence**: `make evidence`
-5. **Deploy (optional)**: `make gcp-full-deploy`
+Create a report using this template:
 
-For detailed component docs, see:
-- `docs/PIPELINE.md` - Pipeline details
-- `docs/ARCHITECTURE.md` - System architecture
-- `docs/DECISIONS.md` - Design rationale
-- `docs/testing.md` - Testing guide
+```markdown
+# Incident Report: [INC-XXX] [Brief Title]
+
+## Summary
+- **Date/Time**: YYYY-MM-DD HH:MM - HH:MM (duration)
+- **Severity**: P1/P2/P3
+- **Impact**: [e.g., "50% of GPS check-ins failed for 15 minutes"]
+- **Root Cause**: [1-2 sentence summary]
+
+## Timeline (UTC)
+| Time | Event |
+|------|-------|
+| 10:00 | Alert fired: 5xx rate >1% |
+| 10:05 | On-call acknowledged |
+| 10:10 | Root cause identified: OOMKilled pods |
+| 10:15 | Mitigation: Increased memory limits |
+| 10:20 | Service restored |
+
+## Root Cause Analysis
+[Detailed explanation of what went wrong]
+
+## Resolution
+[What was done to fix it]
+
+## Action Items
+| Action | Owner | Due Date | Status |
+|--------|-------|----------|--------|
+| Increase default memory limits | @engineer | 2024-01-20 | TODO |
+| Add memory usage alert | @sre | 2024-01-18 | TODO |
+
+## Lessons Learned
+- [What we learned]
+- [What we'll do differently]
+```
+
+### 7.2 Information to Collect
+
+**During Incident:**
+
+```bash
+# Save pod state
+kubectl get pods -l app=harv-backend -o yaml > incident_pods_$(date +%s).yaml
+
+# Save events
+kubectl get events --sort-by='.lastTimestamp' > incident_events_$(date +%s).txt
+
+# Save logs
+kubectl logs -l app=harv-backend --since=1h > incident_logs_$(date +%s).txt
+
+# Save HPA state
+kubectl describe hpa harv-backend-hpa > incident_hpa_$(date +%s).txt
+
+# Save service state
+kubectl get svc,endpoints -o yaml > incident_network_$(date +%s).yaml
+```
+
+**After Incident:**
+
+```bash
+# Export Cloud Logging data
+# Go to Logs Explorer → Run query → Download logs (JSON)
+
+# Get deployment history
+kubectl rollout history deployment/harv-backend
+
+# Get Pulumi stack history
+cd infra && pulumi stack history > pulumi_history.txt
+
+# Screenshot GKE monitoring graphs for the incident window
+```
+
+### 7.3 Post-Incident Checklist
+
+- [ ] Incident report drafted
+- [ ] Timeline verified with logs
+- [ ] Root cause confirmed
+- [ ] Customer communication sent (if applicable)
+- [ ] Action items created in issue tracker
+- [ ] Runbook updated if procedure was missing
+- [ ] Alert thresholds reviewed
+- [ ] Post-mortem meeting scheduled (for P1/P2)
+
+---
+
+## Appendix: Command Cheatsheet
+
+```bash
+# ===== CLUSTER ACCESS =====
+gcloud container clusters get-credentials harv-cluster-prod --zone us-central1-a --project ac215-475022
+
+# ===== STATUS =====
+kubectl get pods -l app=harv-backend              # Pod status
+kubectl get svc harv-backend-lb                   # Load Balancer IP
+kubectl get hpa harv-backend-hpa                  # Autoscaler status
+kubectl top pods -l app=harv-backend              # Resource usage
+
+# ===== LOGS =====
+kubectl logs -l app=harv-backend --tail=100       # Recent logs
+kubectl logs -l app=harv-backend -f               # Follow logs
+kubectl logs <pod> --previous                     # Crashed container
+
+# ===== DEBUGGING =====
+kubectl describe pod <pod-name>                   # Pod details
+kubectl exec -it <pod> -- /bin/sh                 # Shell into pod
+kubectl port-forward deployment/harv-backend 8000:8000  # Local access
+
+# ===== DEPLOYMENT =====
+kubectl rollout restart deployment/harv-backend   # Restart pods
+kubectl rollout undo deployment/harv-backend      # Rollback
+kubectl rollout status deployment/harv-backend    # Watch rollout
+
+# ===== SCALING =====
+kubectl scale deployment harv-backend --replicas=3  # Manual scale
+
+# ===== MODEL =====
+gsutil ls gs://ac215-475022-assets/artifacts/model/  # Check model
+gsutil cat gs://ac215-475022-assets/artifacts/model/metadata.json  # Model version
+```
+
+---
+
+## Document Information
+
+| Field | Value |
+|-------|-------|
+| **Version** | 1.0 |
+| **Last Updated** | 2024-12-05 |
+| **Owner** | HARV SRE Team |
+| **Review Cycle** | Quarterly |
+
+---
+
+*For local development setup, see [MOBILE_APP.md](MOBILE_APP.md) and the main [README.md](../README.md).*
