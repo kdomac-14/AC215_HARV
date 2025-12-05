@@ -37,7 +37,7 @@ class GPSFence:
                 message="GPS location confirmed within lecture hall.",
             )
 
-        # Determine if user is close to the fence and should fallback to vision.
+        # Determine if user is close to the fence (for a more specific message).
         lat_buffer = (
             (self.bounds.min_lat - self.buffer) <= latitude <= (self.bounds.max_lat + self.buffer)
         )
@@ -48,11 +48,12 @@ class GPSFence:
         message = (
             "Location close to hall, please use visual verification."
             if near
-            else "GPS location outside of lecture hall bounds."
+            else "GPS location outside of lecture hall bounds. Please verify with a photo of the classroom."
         )
+        # Always require visual verification when outside bounds
         return GPSResult(
             within_bounds=False,
-            requires_visual_verification=near,
+            requires_visual_verification=True,
             message=message,
         )
 

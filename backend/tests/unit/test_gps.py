@@ -23,8 +23,11 @@ def test_gps_requires_visual_review():
 
 
 def test_gps_outside_bounds():
+    """When GPS is outside bounds, visual verification is always required."""
     bounds = LectureHallBounds(min_lat=0, max_lat=1, min_lon=0, max_lon=1)
     fence = GPSFence(bounds, buffer_meters=1)
     result = fence.evaluate(5, 5)
     assert result.within_bounds is False
-    assert result.requires_visual_verification is False
+    # Visual verification is always required when outside bounds
+    assert result.requires_visual_verification is True
+    assert "photo" in result.message.lower() or "verify" in result.message.lower()
